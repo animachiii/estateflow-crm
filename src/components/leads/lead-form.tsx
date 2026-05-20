@@ -93,8 +93,8 @@ export function LeadForm({ agents }: LeadFormProps) {
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending} className="flex-1">
-          {pending ? 'Creating...' : 'Create Lead'}
+        <Button type="submit" loading={pending} loadingText="Creating..." className="flex-1">
+          Create Lead
         </Button>
       </div>
     </form>

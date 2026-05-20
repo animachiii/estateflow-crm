@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  /* Refined neutral palette inspired by Apple's system materials */
+  --background: #f5f5f7;
+  --foreground: #0a0a0f;
+  --surface: #ffffff;
+  --surface-elev: #ffffff;
+  --muted: #6b7280;
+  --border: rgba(15, 23, 42, 0.08);
+  --ring: rgba(79, 70, 229, 0.35);
+
+  /* Brand accent — indigo, slightly violet (less corporate than pure blue) */
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --accent-soft: rgba(79, 70, 229, 0.08);
+
+  /* Shadow stack — two-layer for depth */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 1px 2px rgba(15, 23, 42, 0.04), 0 20px 48px -16px rgba(15, 23, 42, 0.16);
 }
 
 @theme inline {
@@ -11,11 +27,33 @@
   --font-sans: var(--font-geist-sans);
 }
 
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Slight vignette feel — soft tinted background */
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99, 102, 241, 0.06), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(236, 72, 153, 0.04), transparent 60%),
+    var(--background);
+  background-attachment: fixed;
+}
+
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11", "cv09";
+}
+
+/* Refined heading typography — tighter tracking for Apple feel */
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
 }
 
 /* Safe area for mobile bottom nav */
@@ -31,16 +69,79 @@ body {
   overflow: hidden;
 }
 
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
+/* Hide scrollbar for overflow-x-auto on mobile */
+.overflow-x-auto::-webkit-scrollbar { display: none; }
+.overflow-x-auto { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Refined global scrollbar for desktop */
+@media (min-width: 1024px) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.22);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
 }
 
-/* Hide scrollbar for overflow-x-auto on mobile */
-.overflow-x-auto::-webkit-scrollbar {
-  display: none;
+/* Selection highlight */
+::selection {
+  background: rgba(79, 70, 229, 0.18);
+  color: var(--foreground);
 }
-.overflow-x-auto {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+/* Fade in animation utility */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in-up 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Soft pulse for live indicators */
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.animate-soft-pulse { animation: soft-pulse 2s ease-in-out infinite; }
+
+/* Glass surfaces — Apple-style vibrancy */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+
+/* Press feedback for buttons and links — subtle scale */
+.press {
+  transition: transform 120ms ease, box-shadow 200ms ease, background-color 160ms ease, opacity 120ms ease;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* Focus rings — Apple-like halo */
+:focus-visible {
+  outline: none;
+}
+
+/* Card hover lift */
+.lift {
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 240ms ease;
+}
+.lift:hover {
+  transform: translateY(-1px);
 }

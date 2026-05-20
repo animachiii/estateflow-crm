@@ -8,11 +8,11 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        variant === 'default' && 'bg-blue-100 text-blue-800',
-        variant === 'secondary' && 'bg-gray-100 text-gray-800',
-        variant === 'outline' && 'border border-gray-300 text-gray-700',
-        className
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-[1.4] tracking-tight',
+        variant === 'default' && 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/15',
+        variant === 'secondary' && 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-600/10',
+        variant === 'outline' && 'bg-white text-slate-700 ring-1 ring-inset ring-slate-300',
+        className,
       )}
       {...props}
     />

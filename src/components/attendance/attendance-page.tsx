@@ -84,12 +84,12 @@ export function AttendancePage({ profile, todayRecord, todayAll, recentHistory }
           )}
 
           {!todayRecord ? (
-            <Button size="lg" className="w-full max-w-xs" onClick={handleCheckIn} disabled={loading}>
-              <LogIn className="h-5 w-5" /> {loading ? 'Getting location...' : 'Check In'}
+            <Button size="lg" className="w-full max-w-xs" onClick={handleCheckIn} loading={loading} loadingText="Getting location...">
+              <LogIn className="h-5 w-5" /> Check In
             </Button>
           ) : isCheckedIn ? (
-            <Button size="lg" variant="outline" className="w-full max-w-xs" onClick={handleCheckOut} disabled={loading}>
-              <LogOut className="h-5 w-5" /> {loading ? 'Getting location...' : 'Check Out'}
+            <Button size="lg" variant="outline" className="w-full max-w-xs" onClick={handleCheckOut} loading={loading} loadingText="Getting location...">
+              <LogOut className="h-5 w-5" /> Check Out
             </Button>
           ) : (
             <Badge className="bg-green-100 text-green-800 text-sm px-4 py-2">Day Complete</Badge>

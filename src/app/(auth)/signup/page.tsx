@@ -45,8 +45,8 @@ export default function SignupPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <Input id="password" name="password" type="password" required minLength={6} autoComplete="new-password" />
           </div>
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Creating...' : 'Create Account'}
+          <Button type="submit" className="w-full" loading={pending} loadingText="Creating...">
+            Create Account
           </Button>
         </form>
 

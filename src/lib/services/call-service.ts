@@ -7,6 +7,12 @@ interface BridgeCallParams {
   source: string;
   callbackUrl: string;
   organizationId: string;
+  // Exotel credentials — read from org's integration_settings, fall back to env vars
+  exotelApiKey?: string;
+  exotelApiToken?: string;
+  exotelAccountSid?: string;
+  exotelCallerId?: string;
+  exotelSubdomain?: string;
 }
 
 interface CallResult {
@@ -20,42 +26,65 @@ interface CallResult {
 export const callService = {
   async bridgeCall(params: BridgeCallParams): Promise<CallResult> {
     if (isDryRun()) {
-      console.log('[DRY RUN] Bridge call:', params);
+      console.log('[DRY RUN] Bridge call (Exotel):', params);
       return {
         success: true,
         callSid: `dry_call_${Date.now()}`,
-        conferenceSid: `dry_conf_${Date.now()}`,
+        conferenceSid: null,
         dryRun: true,
       };
     }
 
     try {
-      const twilio = require('twilio')(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
+      // Prefer DB-stored credentials (per-org), fall back to env vars
+      const apiKey = params.exotelApiKey || process.env.EXOTEL_API_KEY;
+      const apiToken = params.exotelApiToken || process.env.EXOTEL_API_TOKEN;
+      const accountSid = params.exotelAccountSid || process.env.EXOTEL_ACCOUNT_SID;
+      const callerId = params.exotelCallerId || process.env.EXOTEL_CALLER_ID;
+      const subdomain = params.exotelSubdomain || process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com';
 
-      const conferenceName = `lead_${Date.now()}`;
+      if (!apiKey || !apiToken || !accountSid || !callerId) {
+        console.error('Exotel credentials missing — set them in Settings');
+        return { success: false, callSid: null, conferenceSid: null, dryRun: false, error: 'Exotel credentials not configured. Go to Settings → Integrations.' };
+      }
 
-      // Step 1: Call the agent first
-      const agentCall = await twilio.calls.create({
-        to: params.agentPhone,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        twiml: `<Response>
-          <Gather numDigits="1" action="${params.callbackUrl}/api/calls/bridge?lead_phone=${encodeURIComponent(params.leadPhone)}&conference=${conferenceName}">
-            <Say>New real estate lead from ${params.source}. Press any key to connect with ${params.leadName}.</Say>
-          </Gather>
-          <Say>No input received. Goodbye.</Say>
-        </Response>`,
+      const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect.json`;
+      const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          From: params.agentPhone,
+          To: params.leadPhone,
+          CallerId: callerId,
+          StatusCallback: `${params.callbackUrl}/api/calls/status`,
+          Record: 'true',
+        }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Exotel bridge call failed:', errorText);
+        return {
+          success: false,
+          callSid: null,
+          conferenceSid: null,
+          dryRun: false,
+          error: `Exotel error (${response.status}): ${errorText}`,
+        };
+      }
+
+      const data = await response.json();
       return {
         success: true,
-        callSid: agentCall.sid,
-        conferenceSid: conferenceName,
+        callSid: data.Call?.Sid || null,
+        conferenceSid: null,
         dryRun: false,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Bridge call error:', error);
       return {
         success: false,
@@ -71,11 +100,32 @@ export const callService = {
     if (isDryRun()) {
       return { status: 'completed', duration: 120, dryRun: true };
     }
-    const twilio = require('twilio')(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    const call = await twilio.calls(callSid).fetch();
-    return { status: call.status, duration: call.duration, dryRun: false };
+    const apiKey = process.env.EXOTEL_API_KEY;
+    const apiToken = process.env.EXOTEL_API_TOKEN;
+    const accountSid = process.env.EXOTEL_ACCOUNT_SID;
+    const subdomain = process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com';
+
+    if (!apiKey || !apiToken || !accountSid) {
+      return { status: 'failed', duration: 0, dryRun: false, error: 'Exotel credentials missing' };
+    }
+
+    const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/${callSid}.json`;
+    const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { status: 'failed', duration: 0, dryRun: false };
+    }
+
+    const data = await response.json();
+    return {
+      status: data.Call?.Status || 'unknown',
+      duration: data.Call?.Duration ? parseInt(data.Call.Duration) : null,
+      dryRun: false,
+    };
   },
 };

@@ -48,8 +48,8 @@ export default function NewSocialPostPage() {
           <Textarea name="notes" rows={2} />
         </div>
 
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Creating...' : 'Create Post'}
+        <Button type="submit" loading={pending} loadingText="Creating..." className="w-full">
+          Create Post
         </Button>
       </form>
     </div>

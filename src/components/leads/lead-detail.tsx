@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { SubmitButton } from '@/components/ui/submit-button';
 import Link from 'next/link';
 import {
   Phone, MessageSquare, Mail, ArrowLeft, Building2, Clock, Send,
-  Share2, Flame, ChevronDown, Pencil
+  Share2, Flame, ChevronDown, Pencil, Sparkles, Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
 import { updateLeadStatus, updateLeadTemperature, assignLead, addLeadNote } from '@/app/actions/leads';
 import { sendFollowUpMessage, createFollowUp } from '@/app/actions/followups';
 import { shareProperty } from '@/app/actions/properties';
+import { draftFollowUpMessage, summarizeLead, suggestNextAction } from '@/app/actions/ai';
 
 interface LeadDetailProps {
   lead: any;
@@ -37,18 +39,73 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
   const [showQuickMessage, setShowQuickMessage] = useState(false);
   const [quickMessage, setQuickMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const [aiInsight, setAiInsight] = useState<{ kind: 'summary' | 'action'; text: string } | null>(null);
+  const [aiError, setAiError] = useState<string>('');
 
-  async function handleAddNote() {
-    if (!note.trim()) return;
-    await addLeadNote(lead.id, note);
-    setNote('');
+  async function handleDraftMessage(channel: 'whatsapp' | 'sms') {
+    setBusyKey('ai-draft');
+    setAiError('');
+    try {
+      const r = await draftFollowUpMessage(lead.id, channel);
+      if ('error' in r && r.error) setAiError(r.error);
+      else if ('text' in r && r.text) setQuickMessage(r.text);
+    } finally {
+      setBusyKey(null);
+    }
   }
 
-  async function handleSendMessage(channel: 'whatsapp' | 'sms') {
+  async function handleSummarize() {
+    setBusyKey('ai-summary');
+    setAiError('');
+    try {
+      const r = await summarizeLead(lead.id);
+      if ('error' in r && r.error) setAiError(r.error);
+      else if ('text' in r && r.text) setAiInsight({ kind: 'summary', text: r.text });
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function handleSuggestAction() {
+    setBusyKey('ai-action');
+    setAiError('');
+    try {
+      const r = await suggestNextAction(lead.id);
+      if ('error' in r && r.error) setAiError(r.error);
+      else if ('text' in r && r.text) setAiInsight({ kind: 'action', text: r.text });
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  function run(key: string, fn: () => Promise<unknown>) {
+    setBusyKey(key);
+    startTransition(async () => {
+      try {
+        await fn();
+      } finally {
+        setBusyKey(null);
+      }
+    });
+  }
+
+  function handleAddNote() {
+    if (!note.trim()) return;
+    run('note', async () => {
+      await addLeadNote(lead.id, note);
+      setNote('');
+    });
+  }
+
+  function handleSendMessage(channel: 'whatsapp' | 'sms') {
     if (!quickMessage.trim()) return;
-    await sendFollowUpMessage(lead.id, quickMessage, channel);
-    setQuickMessage('');
-    setShowQuickMessage(false);
+    run(`msg-${channel}`, async () => {
+      await sendFollowUpMessage(lead.id, quickMessage, channel);
+      setQuickMessage('');
+      setShowQuickMessage(false);
+    });
   }
 
   return (
@@ -82,6 +139,37 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
             )}
           </div>
           {lead.notes && <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-2">{lead.notes}</p>}
+        </CardContent>
+      </Card>
+
+      {/* AI Insights */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              <span className="text-sm font-semibold text-gray-900">AI Insights</span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" loading={busyKey === 'ai-summary'} loadingText="..." onClick={handleSummarize}>
+                Summarize
+              </Button>
+              <Button size="sm" variant="outline" loading={busyKey === 'ai-action'} loadingText="..." onClick={handleSuggestAction}>
+                <Lightbulb className="h-4 w-4" /> Next action
+              </Button>
+            </div>
+          </div>
+          {aiError && !aiInsight && (
+            <div className="bg-red-50 text-red-700 text-xs px-3 py-2 rounded-lg">{aiError}</div>
+          )}
+          {aiInsight && (
+            <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+              <p className="text-[10px] uppercase tracking-wide text-purple-600 mb-1">
+                {aiInsight.kind === 'summary' ? 'Summary' : 'Recommended next action'}
+              </p>
+              <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">{aiInsight.text}</pre>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -120,11 +208,15 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
                 {templates.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </Select>
             </div>
-            <Textarea value={quickMessage} onChange={(e) => setQuickMessage(e.target.value)} rows={2} placeholder="Type your message..." />
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => handleSendMessage('whatsapp')}>Send WhatsApp</Button>
-              <Button size="sm" variant="outline" onClick={() => handleSendMessage('sms')}>Send SMS</Button>
+            <Textarea value={quickMessage} onChange={(e) => setQuickMessage(e.target.value)} rows={3} placeholder="Type your message..." />
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" loading={busyKey === 'ai-draft'} loadingText="Drafting..." onClick={() => handleDraftMessage('whatsapp')}>
+                <Sparkles className="h-4 w-4 text-purple-600" /> Draft with AI
+              </Button>
+              <Button size="sm" loading={busyKey === 'msg-whatsapp'} loadingText="Sending..." onClick={() => handleSendMessage('whatsapp')}>Send WhatsApp</Button>
+              <Button size="sm" variant="outline" loading={busyKey === 'msg-sms'} loadingText="Sending..." onClick={() => handleSendMessage('sms')}>Send SMS</Button>
             </div>
+            {aiError && <p className="text-xs text-red-600">{aiError}</p>}
           </CardContent>
         </Card>
       )}
@@ -141,11 +233,13 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
                   <p className="text-xs text-gray-500">{p.location} · {formatCurrency(p.price)}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="icon-sm" variant="ghost" onClick={() => shareProperty(lead.id, p.id, 'whatsapp')}>
-                    <MessageSquare className="h-3.5 w-3.5" />
+                  <Button size="icon-sm" variant="ghost" loading={busyKey === `share-wa-${p.id}`}
+                    onClick={() => run(`share-wa-${p.id}`, () => shareProperty(lead.id, p.id, 'whatsapp'))}>
+                    {busyKey === `share-wa-${p.id}` ? null : <MessageSquare className="h-3.5 w-3.5" />}
                   </Button>
-                  <Button size="icon-sm" variant="ghost" onClick={() => shareProperty(lead.id, p.id, 'email')}>
-                    <Mail className="h-3.5 w-3.5" />
+                  <Button size="icon-sm" variant="ghost" loading={busyKey === `share-em-${p.id}`}
+                    onClick={() => run(`share-em-${p.id}`, () => shareProperty(lead.id, p.id, 'email'))}>
+                    {busyKey === `share-em-${p.id}` ? null : <Mail className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               </div>
@@ -172,7 +266,7 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
                 <Input name="scheduled_at" type="datetime-local" required />
               </div>
               <Textarea name="message" placeholder="Follow-up message (optional)" rows={2} />
-              <Button type="submit" size="sm">Schedule Follow-up</Button>
+              <SubmitButton size="sm" loadingText="Scheduling...">Schedule Follow-up</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -205,7 +299,7 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
               rows={2}
               className="flex-1"
             />
-            <Button onClick={handleAddNote} size="sm" className="self-end">Add</Button>
+            <Button onClick={handleAddNote} size="sm" className="self-end" loading={busyKey === 'note'} loadingText="Adding...">Add</Button>
           </div>
         </CardContent>
       </Card>

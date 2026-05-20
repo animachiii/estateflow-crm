@@ -51,19 +51,37 @@ export async function signUp(_prevState: unknown, formData: FormData) {
     return { error: 'All fields are required' };
   }
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
-  }).catch((error: unknown) => ({
-    data: null,
-    error: { message: getAuthErrorMessage(error) },
-  }));
-
-  if (authError) return { error: authError.message };
-  if (!authData.user) return { error: 'Signup failed' };
-
   const serviceClient = createServiceRoleClient();
+
+  // Use admin.createUser so we can skip email confirmation. Falls back to
+  // a clear error if the email is already registered.
+  const { data: created, error: createError } = await serviceClient.auth.admin
+    .createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    })
+    .catch((error: unknown) => ({ data: null, error: { message: getAuthErrorMessage(error) } }));
+
+  if (createError) {
+    const msg = createError.message || '';
+    if (/already registered|already exists|duplicate/i.test(msg)) {
+      return { error: 'An account with this email already exists. Try signing in instead.' };
+    }
+    return { error: msg || 'Signup failed' };
+  }
+  if (!created?.user) return { error: 'Signup failed' };
+
+  const authData = { user: created.user };
+
+  // Establish a session immediately so the redirect to "/" lands on the dashboard.
+  const { error: signInError } = await supabase.auth
+    .signInWithPassword({ email, password })
+    .catch((error: unknown) => ({ error: { message: getAuthErrorMessage(error) } }));
+  if (signInError) {
+    return { error: `Account created but auto-login failed: ${signInError.message}. Please sign in manually.` };
+  }
 
   const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 

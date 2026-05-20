@@ -33,8 +33,12 @@ export function timeAgo(date: string | Date): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
+/**
+ * Dry-run mode only when explicitly set to "true". Twilio credentials now
+ * live in the DB per-org, so missing env vars should NOT force dry-run.
+ */
 export function isDryRun(): boolean {
-  return process.env.DRY_RUN === 'true' || !process.env.TWILIO_ACCOUNT_SID;
+  return process.env.DRY_RUN === 'true';
 }
 
 export const LEAD_STATUS_COLORS: Record<string, string> = {

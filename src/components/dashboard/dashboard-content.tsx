@@ -25,23 +25,30 @@ interface DashboardProps {
 }
 
 const statCards = [
-  { key: 'newLeadsToday', label: 'New Leads', icon: Users, color: 'text-blue-600 bg-blue-50', href: '/leads' },
-  { key: 'callsToday', label: 'Calls Today', icon: Phone, color: 'text-green-600 bg-green-50', href: '/leads' },
-  { key: 'dueFollowUps', label: 'Due Follow-ups', icon: Clock, color: 'text-orange-600 bg-orange-50', href: '/followups' },
-  { key: 'hotLeads', label: 'Hot Leads', icon: Flame, color: 'text-red-600 bg-red-50', href: '/leads?temperature=hot' },
-  { key: 'availableProperties', label: 'Inventory', icon: Building2, color: 'text-purple-600 bg-purple-50', href: '/properties' },
-  { key: 'checkedIn', label: 'Checked In', icon: UserCheck, color: 'text-teal-600 bg-teal-50', href: '/attendance' },
+  { key: 'newLeadsToday', label: 'New Leads', icon: Users, tint: 'from-indigo-500/15 to-indigo-500/0', icon_bg: 'bg-indigo-50 text-indigo-600 ring-indigo-600/10', href: '/leads' },
+  { key: 'callsToday', label: 'Calls Today', icon: Phone, tint: 'from-emerald-500/15 to-emerald-500/0', icon_bg: 'bg-emerald-50 text-emerald-600 ring-emerald-600/10', href: '/leads' },
+  { key: 'dueFollowUps', label: 'Due Follow-ups', icon: Clock, tint: 'from-amber-500/15 to-amber-500/0', icon_bg: 'bg-amber-50 text-amber-600 ring-amber-600/10', href: '/followups' },
+  { key: 'hotLeads', label: 'Hot Leads', icon: Flame, tint: 'from-rose-500/15 to-rose-500/0', icon_bg: 'bg-rose-50 text-rose-600 ring-rose-600/10', href: '/leads?temperature=hot' },
+  { key: 'availableProperties', label: 'Inventory', icon: Building2, tint: 'from-violet-500/15 to-violet-500/0', icon_bg: 'bg-violet-50 text-violet-600 ring-violet-600/10', href: '/properties' },
+  { key: 'checkedIn', label: 'Checked In', icon: UserCheck, tint: 'from-teal-500/15 to-teal-500/0', icon_bg: 'bg-teal-50 text-teal-600 ring-teal-600/10', href: '/attendance' },
 ] as const;
+
+function todayLabel() {
+  const d = new Date();
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
 
 export function DashboardContent({ stats, dueFollowUps, hotLeads, recentActivities, profile }: DashboardProps) {
   return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-8 space-y-8 max-w-6xl mx-auto animate-fade-in">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">{todayLabel()}</p>
+          <h1 className="text-[28px] lg:text-[34px] font-semibold tracking-tight text-slate-900 mt-1">
             Hi, {profile.full_name.split(' ')[0]}
+            <span className="text-slate-400 font-normal"> 👋</span>
           </h1>
-          <p className="text-sm text-gray-500">Here&apos;s your CRM overview</p>
+          <p className="text-[14px] text-slate-500 mt-0.5">Here&apos;s what&apos;s moving today.</p>
         </div>
         <Link href="/leads/new">
           <Button size="sm"><Plus className="h-4 w-4" /> Add Lead</Button>
@@ -49,27 +56,26 @@ export function DashboardContent({ stats, dueFollowUps, hotLeads, recentActiviti
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {statCards.map(({ key, label, icon: Icon, color, href }) => (
-          <Link key={key} href={href}>
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${color}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats[key]}</p>
-                    <p className="text-xs text-gray-500">{label}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+        {statCards.map(({ key, label, icon: Icon, tint, icon_bg, href }) => (
+          <Link key={key} href={href} className="press lift block">
+            <Card className="relative overflow-hidden">
+              <div className={`absolute inset-0 bg-gradient-to-br ${tint} pointer-events-none`} />
+              <CardContent className="p-4 relative">
+                <div className="flex items-start justify-between">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-inset ${icon_bg}`}>
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
                   </div>
                 </div>
+                <p className="mt-3 text-[28px] font-semibold tracking-tight text-slate-900 leading-none">{stats[key]}</p>
+                <p className="text-[12px] text-slate-500 mt-1.5">{label}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Due Follow-ups */}
         <Card>
           <CardHeader>
@@ -81,14 +87,14 @@ export function DashboardContent({ stats, dueFollowUps, hotLeads, recentActiviti
             {dueFollowUps.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No follow-ups due</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {dueFollowUps.map((f: any) => (
-                  <Link key={f.id} href={`/leads/${f.lead_id}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+                  <Link key={f.id} href={`/leads/${f.lead_id}`} className="press flex items-center justify-between p-2.5 -mx-2 rounded-xl hover:bg-slate-50">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{f.lead?.full_name}</p>
-                      <p className="text-xs text-gray-500">{f.type} · {timeAgo(f.scheduled_at)}</p>
+                      <p className="text-[13.5px] font-medium text-slate-900">{f.lead?.full_name}</p>
+                      <p className="text-[12px] text-slate-500 capitalize">{f.type} · {timeAgo(f.scheduled_at)}</p>
                     </div>
-                    <PhoneCall className="h-4 w-4 text-gray-400" />
+                    <PhoneCall className="h-4 w-4 text-slate-400" />
                   </Link>
                 ))}
               </div>
@@ -107,12 +113,12 @@ export function DashboardContent({ stats, dueFollowUps, hotLeads, recentActiviti
             {hotLeads.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No hot leads</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {hotLeads.map((lead: any) => (
-                  <Link key={lead.id} href={`/leads/${lead.id}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+                  <Link key={lead.id} href={`/leads/${lead.id}`} className="press flex items-center justify-between p-2.5 -mx-2 rounded-xl hover:bg-slate-50">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{lead.full_name}</p>
-                      <p className="text-xs text-gray-500">{formatPhone(lead.phone)}</p>
+                      <p className="text-[13.5px] font-medium text-slate-900">{lead.full_name}</p>
+                      <p className="text-[12px] text-slate-500">{formatPhone(lead.phone)}</p>
                     </div>
                     <Badge className={TEMP_COLORS.hot}>Hot</Badge>
                   </Link>
@@ -132,17 +138,22 @@ export function DashboardContent({ stats, dueFollowUps, hotLeads, recentActiviti
           {recentActivities.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">No recent activity</p>
           ) : (
-            <div className="space-y-3">
-              {recentActivities.map((a: any) => (
-                <div key={a.id} className="flex items-start gap-3 text-sm">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900">{a.title}</p>
-                    {a.description && <p className="text-gray-500 text-xs truncate">{a.description}</p>}
-                    <p className="text-gray-400 text-xs">{a.user?.full_name} · {timeAgo(a.created_at)}</p>
+            <div className="relative">
+              <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-gradient-to-b from-slate-200 via-slate-200/60 to-transparent" />
+              <div className="space-y-4">
+                {recentActivities.map((a: any) => (
+                  <div key={a.id} className="relative flex items-start gap-3 text-[13.5px] pl-0">
+                    <div className="relative z-10 flex h-3 w-3 items-center justify-center mt-1 shrink-0">
+                      <span className="h-2.5 w-2.5 rounded-full bg-white ring-2 ring-indigo-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900">{a.title}</p>
+                      {a.description && <p className="text-slate-500 text-[12px] truncate">{a.description}</p>}
+                      <p className="text-slate-400 text-[11px] mt-0.5">{a.user?.full_name} · {timeAgo(a.created_at)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

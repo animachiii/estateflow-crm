@@ -70,7 +70,7 @@ export async function sendFollowUpMessage(leadId: string, message: string, chann
     preferredLocation: lead.preferred_location || 'your area',
   });
 
-  const result = await messageService.send({ to: lead.phone, body: filledMessage, channel });
+  const result = await messageService.send({ to: lead.phone, body: filledMessage, channel, organizationId: profile.organization_id });
 
   await supabase.from('activities').insert({
     organization_id: profile.organization_id,

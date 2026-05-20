@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist } from 'next/font/google';
 import './globals.css';
+import { Suspense } from 'react';
 import { AuthProvider } from '@/components/layout/auth-provider';
+import { TopProgress } from '@/components/ui/top-progress';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,6 +29,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full`}>
       <body className="min-h-full bg-gray-50 font-sans antialiased">
+        <Suspense fallback={null}>
+          <TopProgress />
+        </Suspense>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

@@ -102,8 +102,8 @@ export function PropertyForm() {
         <Input name="tags" placeholder="premium, golf-course, new-launch" />
       </div>
 
-      <Button type="submit" disabled={pending} className="w-full">
-        {pending ? 'Creating...' : 'Create Property'}
+      <Button type="submit" loading={pending} loadingText="Creating..." className="w-full">
+        Create Property
       </Button>
     </form>
   );

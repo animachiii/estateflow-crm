@@ -33,8 +33,8 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <Input id="password" name="password" type="password" required autoComplete="current-password" />
           </div>
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Signing in...' : 'Sign In'}
+          <Button type="submit" className="w-full" loading={pending} loadingText="Signing in...">
+            Sign In
           </Button>
         </form>
 

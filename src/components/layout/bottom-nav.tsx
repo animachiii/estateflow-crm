@@ -6,7 +6,7 @@ import { LayoutDashboard, Users, Building2, Clock, MoreHorizontal } from 'lucide
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/', icon: LayoutDashboard, label: 'Home' },
   { href: '/leads', icon: Users, label: 'Leads' },
   { href: '/properties', icon: Building2, label: 'Properties' },
   { href: '/followups', icon: Clock, label: 'Follow-ups' },
@@ -17,8 +17,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 lg:hidden safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden safe-area-bottom border-t border-slate-900/[0.06] glass-strong">
+      <div className="flex items-center justify-around h-[64px] px-1">
         {navItems.map((item) => {
           const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
@@ -26,12 +26,24 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 w-16 py-1 rounded-lg transition-colors',
-                isActive ? 'text-blue-600' : 'text-gray-500'
+                'press relative flex flex-col items-center justify-center gap-0.5 w-16 py-1.5',
+                'transition-colors duration-150',
+                isActive ? 'text-indigo-600' : 'text-slate-500',
               )}
             >
-              <item.icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span
+                className={cn(
+                  'flex items-center justify-center rounded-xl transition-all duration-200',
+                  isActive
+                    ? 'bg-indigo-50 px-3 py-1 ring-1 ring-inset ring-indigo-600/15'
+                    : 'px-2 py-1',
+                )}
+              >
+                <item.icon className="h-[20px] w-[20px]" strokeWidth={isActive ? 2.5 : 2} />
+              </span>
+              <span className={cn('text-[10px] tracking-tight', isActive ? 'font-semibold' : 'font-medium')}>
+                {item.label}
+              </span>
             </Link>
           );
         })}

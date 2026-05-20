@@ -26,6 +26,7 @@ export const webhookLeadSchema = z.object({
   budgetMax: z.number().optional(),
   preferredLocation: z.string().optional(),
   notes: z.string().optional(),
+  organizationId: z.string().uuid().optional(),
 });
 
 export type LeadInput = z.infer<typeof leadSchema>;

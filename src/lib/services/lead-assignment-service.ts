@@ -8,7 +8,7 @@ export const leadAssignmentService = {
       .from('profiles')
       .select('id')
       .eq('organization_id', organizationId)
-      .eq('role', 'sales_agent')
+      .in('role', ['admin', 'sales_manager', 'sales_agent'])
       .eq('is_active', true)
       .order('created_at');
 

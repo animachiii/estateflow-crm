@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +71,7 @@ export function TeamPage({ members, currentProfile }: Props) {
                   <option value="social_media_manager">Social Media Manager</option>
                 </Select>
               </div>
-              <Button type="submit" size="sm">Send Invite</Button>
+              <SubmitButton size="sm" loadingText="Sending...">Send Invite</SubmitButton>
             </form>
           </CardContent>
         </Card>

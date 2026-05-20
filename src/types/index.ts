@@ -213,6 +213,13 @@ export interface IntegrationSettings {
   twilio_account_sid: string | null;
   twilio_auth_token: string | null;
   twilio_phone_number: string | null;
+  exotel_api_key: string | null;
+  exotel_api_token: string | null;
+  exotel_account_sid: string | null;
+  exotel_caller_id: string | null;
+  exotel_subdomain: string | null;
+  exotel_dlt_entity_id: string | null;
+  exotel_dlt_template_id: string | null;
   whatsapp_sender_number: string | null;
   resend_api_key: string | null;
   smtp_host: string | null;

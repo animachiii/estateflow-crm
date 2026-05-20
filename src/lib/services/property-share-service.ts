@@ -20,13 +20,13 @@ export const propertyShareService = {
         shareLink,
       }
     );
-    return messageService.send({ to: lead.phone, body, channel: 'whatsapp' });
+    return messageService.send({ to: lead.phone, body, channel: 'whatsapp', organizationId: lead.organization_id });
   },
 
   async shareViaSms(lead: Lead, property: Property) {
     const shareLink = this.generateShareLink(property.id);
     const body = `Hi ${lead.full_name.split(' ')[0]}, check out ${property.title} in ${property.location}. ${formatCurrency(property.price)}. Details: ${shareLink}`;
-    return messageService.send({ to: lead.phone, body, channel: 'sms' });
+    return messageService.send({ to: lead.phone, body, channel: 'sms', organizationId: lead.organization_id });
   },
 
   async shareViaEmail(lead: Lead, property: Property) {

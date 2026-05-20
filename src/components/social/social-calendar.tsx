@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Plus, Camera, Globe, Briefcase, Film, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ const statusColors: Record<string, string> = {
 };
 
 export function SocialCalendar({ posts }: { posts: any[] }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -73,10 +76,16 @@ export function SocialCalendar({ posts }: { posts: any[] }) {
                     </div>
                     <div className="flex flex-col gap-1">
                       {post.status !== 'published' && (
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => {
-                          const next = post.status === 'idea' ? 'draft' : post.status === 'draft' ? 'scheduled' : 'published';
-                          updateSocialPostStatus(post.id, next);
-                        }}>
+                        <Button size="sm" variant="ghost" className="text-xs"
+                          loading={busyId === post.id}
+                          loadingText="..."
+                          onClick={() => {
+                            const next = post.status === 'idea' ? 'draft' : post.status === 'draft' ? 'scheduled' : 'published';
+                            setBusyId(post.id);
+                            startTransition(async () => {
+                              try { await updateSocialPostStatus(post.id, next); } finally { setBusyId(null); }
+                            });
+                          }}>
                           {post.status === 'idea' ? 'Draft' : post.status === 'draft' ? 'Schedule' : 'Publish'}
                         </Button>
                       )}

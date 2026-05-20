@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Clock, Check, AlarmClockOff, Phone, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,12 +55,24 @@ export function FollowUpsList({ followups }: { followups: any[] }) {
 
 function FollowUpCard({ followup: f, isOverdue = false }: { followup: any; isOverdue?: boolean }) {
   const Icon = typeIcons[f.type] || Clock;
+  const [busy, setBusy] = useState<'complete' | 'snooze' | null>(null);
+  const [, startTransition] = useTransition();
 
-  async function handleSnooze() {
+  function handleComplete() {
+    setBusy('complete');
+    startTransition(async () => {
+      try { await completeFollowUp(f.id); } finally { setBusy(null); }
+    });
+  }
+
+  function handleSnooze() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(10, 0, 0, 0);
-    await snoozeFollowUp(f.id, tomorrow.toISOString());
+    setBusy('snooze');
+    startTransition(async () => {
+      try { await snoozeFollowUp(f.id, tomorrow.toISOString()); } finally { setBusy(null); }
+    });
   }
 
   return (
@@ -82,11 +95,11 @@ function FollowUpCard({ followup: f, isOverdue = false }: { followup: any; isOve
             {f.message && <p className="text-xs text-gray-500 mt-1 truncate">{f.message}</p>}
           </div>
           <div className="flex gap-1 shrink-0">
-            <Button size="icon-sm" variant="ghost" onClick={() => completeFollowUp(f.id)} title="Complete">
-              <Check className="h-4 w-4 text-green-600" />
+            <Button size="icon-sm" variant="ghost" onClick={handleComplete} loading={busy === 'complete'} title="Complete">
+              {busy === 'complete' ? null : <Check className="h-4 w-4 text-green-600" />}
             </Button>
-            <Button size="icon-sm" variant="ghost" onClick={handleSnooze} title="Snooze to tomorrow">
-              <AlarmClockOff className="h-4 w-4 text-orange-500" />
+            <Button size="icon-sm" variant="ghost" onClick={handleSnooze} loading={busy === 'snooze'} title="Snooze to tomorrow">
+              {busy === 'snooze' ? null : <AlarmClockOff className="h-4 w-4 text-orange-500" />}
             </Button>
           </div>
         </div>

@@ -50,16 +50,44 @@ export async function POST(request: Request) {
 
   const supabase = createServiceRoleClient();
 
-  // Get the first organization (multi-tenant: use API key to determine org)
-  const { data: org } = await supabase.from('organizations').select('id').limit(1).single();
-  if (!org) {
-    return NextResponse.json({ error: 'No organization found' }, { status: 500 });
+  // Multi-tenant routing: prefer the org explicitly named in the payload or header,
+  // otherwise pick the org that has Twilio credentials configured (the "real" org),
+  // falling back to the most recently created org.
+  let orgId: string | undefined = parsed.data.organizationId || request.headers.get('x-org-id') || undefined;
+
+  if (!orgId) {
+    // Look for an org with Twilio or Exotel credentials saved — that's the actively-used one
+    const { data: configured } = await supabase
+      .from('integration_settings')
+      .select('organization_id')
+      .or('twilio_account_sid.not.is.null,exotel_account_sid.not.is.null')
+      .limit(1);
+
+    if (configured && configured.length > 0) {
+      orgId = configured[0].organization_id;
+    }
   }
 
-  // Get assignment mode
+  if (!orgId) {
+    // Fall back to most recently created org
+    const { data: latest } = await supabase
+      .from('organizations')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    orgId = latest?.id;
+  }
+
+  if (!orgId) {
+    return NextResponse.json({ error: 'No organization found' }, { status: 500 });
+  }
+  const org = { id: orgId };
+
+  // Get integration settings (assignment mode + Twilio/Exotel credentials)
   const { data: settings } = await supabase
     .from('integration_settings')
-    .select('lead_assignment_mode')
+    .select('lead_assignment_mode, twilio_account_sid, twilio_auth_token, twilio_phone_number, exotel_api_key, exotel_api_token, exotel_account_sid, exotel_caller_id, exotel_subdomain')
     .eq('organization_id', org.id)
     .single();
 
@@ -109,6 +137,7 @@ export async function POST(request: Request) {
     });
 
     // Trigger bridge call
+    let callDiagnostics: any = { skipped: true, reason: 'no agent phone' };
     const { data: agent } = await supabase.from('profiles').select('phone').eq('id', agentId).single();
     if (agent?.phone) {
       const callResult = await callService.bridgeCall({
@@ -118,7 +147,21 @@ export async function POST(request: Request) {
         source: normalizedSource,
         callbackUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         organizationId: org.id,
+        exotelApiKey: settings?.exotel_api_key ?? undefined,
+        exotelApiToken: settings?.exotel_api_token ?? undefined,
+        exotelAccountSid: settings?.exotel_account_sid ?? undefined,
+        exotelCallerId: settings?.exotel_caller_id ?? undefined,
+        exotelSubdomain: settings?.exotel_subdomain ?? undefined,
       });
+
+      callDiagnostics = {
+        success: callResult.success,
+        callSid: callResult.callSid,
+        dryRun: callResult.dryRun,
+        error: callResult.error,
+        agentPhone: agent.phone,
+        fromNumber: settings?.exotel_caller_id || settings?.twilio_phone_number,
+      };
 
       await supabase.from('calls').insert({
         organization_id: org.id,
@@ -135,13 +178,26 @@ export async function POST(request: Request) {
         user_id: agentId,
         type: 'call',
         title: callResult.dryRun ? 'Bridge call simulated (dry-run)' : 'Bridge call initiated',
+        description: callResult.error || null,
       });
+    } else {
+      callDiagnostics = { skipped: true, reason: 'agent has no phone number set in profile' };
     }
+
+    return NextResponse.json({
+      success: true,
+      leadId: lead.id,
+      organizationId: org.id,
+      assignedAgent: agentId,
+      call: callDiagnostics,
+    }, { status: 201 });
   }
 
   return NextResponse.json({
     success: true,
     leadId: lead.id,
+    organizationId: org.id,
     assignedAgent: agentId,
+    call: { skipped: true, reason: 'no agent assigned' },
   }, { status: 201 });
 }
