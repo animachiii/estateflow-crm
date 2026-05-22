@@ -12,7 +12,7 @@ export default async function PropertyDetailPage({
 
   const { data: property } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), documents:property_documents(*)')
+    .select('*, images:property_images(*), documents:property_documents(*), project:projects(*)')
     .eq('id', id)
     .single();
 

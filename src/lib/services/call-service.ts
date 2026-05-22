@@ -21,6 +21,30 @@ interface CallResult {
   conferenceSid: string | null;
   dryRun: boolean;
   error?: string;
+  errorCode?: 'kyc_pending';
+}
+
+function normalizeExotelHost(host: string): string {
+  return host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+function normalizeExotelPhone(phone: string): string {
+  return phone.trim().replace(/[\s\-()]/g, '');
+}
+
+function parseExotelBridgeError(status: number, errorText: string): Pick<CallResult, 'error' | 'errorCode'> {
+  const lower = errorText.toLowerCase();
+
+  if (status === 403 && lower.includes('kyc compliant')) {
+    return {
+      error: 'Exotel KYC is still pending. Complete KYC in the Exotel dashboard before live outbound calls will work. If this is a trial account, Exotel only allows calls to verified users until KYC is approved.',
+      errorCode: 'kyc_pending',
+    };
+  }
+
+  return {
+    error: `Exotel error (${status}): ${errorText}`,
+  };
 }
 
 export const callService = {
@@ -41,15 +65,21 @@ export const callService = {
       const apiToken = params.exotelApiToken || process.env.EXOTEL_API_TOKEN;
       const accountSid = params.exotelAccountSid || process.env.EXOTEL_ACCOUNT_SID;
       const callerId = params.exotelCallerId || process.env.EXOTEL_CALLER_ID;
-      const subdomain = params.exotelSubdomain || process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com';
+      const subdomain = normalizeExotelHost(params.exotelSubdomain || process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com');
 
       if (!apiKey || !apiToken || !accountSid || !callerId) {
         console.error('Exotel credentials missing — set them in Settings');
         return { success: false, callSid: null, conferenceSid: null, dryRun: false, error: 'Exotel credentials not configured. Go to Settings → Integrations.' };
       }
 
-      const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect.json`;
+      const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect`;
       const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+      const customField = JSON.stringify({
+        organizationId: params.organizationId,
+        leadName: params.leadName,
+        source: params.source,
+      }).slice(0, 128);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -57,10 +87,14 @@ export const callService = {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          From: params.agentPhone,
-          To: params.leadPhone,
-          CallerId: callerId,
+          From: normalizeExotelPhone(params.agentPhone),
+          To: normalizeExotelPhone(params.leadPhone),
+          CallerId: normalizeExotelPhone(callerId),
+          CallType: 'trans',
           StatusCallback: `${params.callbackUrl}/api/calls/status`,
+          StatusCallbackEvents: 'terminal',
+          StatusCallbackContentType: 'application/json',
+          CustomField: customField,
           Record: 'true',
         }),
       });
@@ -73,7 +107,7 @@ export const callService = {
           callSid: null,
           conferenceSid: null,
           dryRun: false,
-          error: `Exotel error (${response.status}): ${errorText}`,
+          ...parseExotelBridgeError(response.status, errorText),
         };
       }
 
@@ -103,13 +137,13 @@ export const callService = {
     const apiKey = process.env.EXOTEL_API_KEY;
     const apiToken = process.env.EXOTEL_API_TOKEN;
     const accountSid = process.env.EXOTEL_ACCOUNT_SID;
-    const subdomain = process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com';
+    const subdomain = normalizeExotelHost(process.env.EXOTEL_SUBDOMAIN || 'api.in.exotel.com');
 
     if (!apiKey || !apiToken || !accountSid) {
       return { status: 'failed', duration: 0, dryRun: false, error: 'Exotel credentials missing' };
     }
 
-    const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/${callSid}.json`;
+    const url = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/${callSid}`;
     const auth = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
     const response = await fetch(url, {
       headers: {

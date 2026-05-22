@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 export const propertySchema = z.object({
+  project_id: z.preprocess(
+    (value) => value === '' ? null : value,
+    z.string().uuid('Select a valid project').optional().nullable(),
+  ),
   title: z.string().min(1, 'Title is required').max(300),
   location: z.string().min(1, 'Location is required').max(300),
   address: z.string().max(500).optional().nullable(),

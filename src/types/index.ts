@@ -74,6 +74,7 @@ export interface Lead {
 export interface Property {
   id: string;
   organization_id: string;
+  project_id: string | null;
   title: string;
   location: string;
   address: string | null;
@@ -93,6 +94,19 @@ export interface Property {
   created_at: string;
   updated_at: string;
   images?: PropertyImage[];
+  project?: Project | null;
+}
+
+export interface Project {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  builder_name: string | null;
+  city: string;
+  locality: string;
+  micro_market: string | null;
+  indicative_price_min: number | null;
+  indicative_price_max: number | null;
 }
 
 export interface PropertyImage {

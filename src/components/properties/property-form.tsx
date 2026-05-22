@@ -7,7 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
-export function PropertyForm() {
+interface ProjectOption {
+  id: string;
+  name: string;
+  builder_name: string | null;
+  locality: string;
+}
+
+export function PropertyForm({ projects }: { projects: ProjectOption[] }) {
   const [state, formAction, pending] = useActionState(createProperty, null);
 
   return (
@@ -18,12 +25,23 @@ export function PropertyForm() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project / Society</label>
+          <Select name="project_id" defaultValue="">
+            <option value="">Standalone unit or project not in catalog</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name} - {project.builder_name || 'Independent'} - {project.locality}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-          <Input name="title" required placeholder="e.g. 3BHK in Sector 50" />
+          <Input name="title" required placeholder="e.g. Tower 5 3BHK resale unit" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-          <Input name="location" required placeholder="e.g. Gurgaon" />
+          <Input name="location" required placeholder="e.g. Whitefield" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>

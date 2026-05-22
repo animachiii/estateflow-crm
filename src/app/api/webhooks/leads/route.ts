@@ -5,15 +5,46 @@ import { leadAssignmentService } from '@/lib/services/lead-assignment-service';
 import { callService } from '@/lib/services/call-service';
 import crypto from 'crypto';
 
-function verifyWebhookSecret(request: Request, body: string): boolean {
-  const secret = process.env.WEBHOOK_SECRET;
-  if (!secret || secret === 'dev-secret') return true;
+function matchesWebhookSignature(secret: string, signature: string, body: string) {
+  const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
+  return signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
 
+async function verifyWebhookSecret(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  request: Request,
+  body: string,
+  orgId?: string
+): Promise<boolean> {
   const signature = request.headers.get('x-webhook-signature');
   if (!signature) return false;
 
-  const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  const envSecret = process.env.WEBHOOK_SECRET;
+  if (envSecret && envSecret !== 'dev-secret' && matchesWebhookSignature(envSecret, signature, body)) {
+    return true;
+  }
+
+  if (orgId) {
+    const { data: settings } = await supabase
+      .from('integration_settings')
+      .select('webhook_secret')
+      .eq('organization_id', orgId)
+      .single();
+
+    if (settings?.webhook_secret) {
+      return matchesWebhookSignature(settings.webhook_secret, signature, body);
+    }
+    return false;
+  }
+
+  const { data: settings } = await supabase
+    .from('integration_settings')
+    .select('webhook_secret')
+    .not('webhook_secret', 'is', null);
+
+  return (settings || []).some((row: { webhook_secret: string | null }) =>
+    row.webhook_secret ? matchesWebhookSignature(row.webhook_secret, signature, body) : false
+  );
 }
 
 const sourceMap: Record<string, string> = {
@@ -31,11 +62,6 @@ const sourceMap: Record<string, string> = {
 
 export async function POST(request: Request) {
   const bodyText = await request.text();
-
-  if (!verifyWebhookSecret(request, bodyText)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-  }
-
   let payload;
   try {
     payload = JSON.parse(bodyText);
@@ -43,24 +69,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
+  const supabase = createServiceRoleClient();
+  const hintedOrgId = payload.organizationId || request.headers.get('x-org-id') || undefined;
+  if (!(await verifyWebhookSecret(supabase, request, bodyText, hintedOrgId))) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
   const parsed = webhookLeadSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 });
   }
 
-  const supabase = createServiceRoleClient();
-
   // Multi-tenant routing: prefer the org explicitly named in the payload or header,
-  // otherwise pick the org that has Twilio credentials configured (the "real" org),
+  // otherwise pick the org that has voice credentials configured,
   // falling back to the most recently created org.
   let orgId: string | undefined = parsed.data.organizationId || request.headers.get('x-org-id') || undefined;
 
   if (!orgId) {
-    // Look for an org with Twilio or Exotel credentials saved — that's the actively-used one
+    // Look for an org with voice credentials saved — that's the actively-used one.
     const { data: configured } = await supabase
       .from('integration_settings')
       .select('organization_id')
-      .or('twilio_account_sid.not.is.null,exotel_account_sid.not.is.null')
+      .or('exotel_account_sid.not.is.null,twilio_account_sid.not.is.null')
       .limit(1);
 
     if (configured && configured.length > 0) {
@@ -84,7 +114,7 @@ export async function POST(request: Request) {
   }
   const org = { id: orgId };
 
-  // Get integration settings (assignment mode + Twilio/Exotel credentials)
+  // Get integration settings (assignment mode + voice credentials).
   const { data: settings } = await supabase
     .from('integration_settings')
     .select('lead_assignment_mode, twilio_account_sid, twilio_auth_token, twilio_phone_number, exotel_api_key, exotel_api_token, exotel_account_sid, exotel_caller_id, exotel_subdomain')
@@ -137,7 +167,7 @@ export async function POST(request: Request) {
     });
 
     // Trigger bridge call
-    let callDiagnostics: any = { skipped: true, reason: 'no agent phone' };
+    let callDiagnostics: Record<string, string | boolean | null> = { skipped: true, reason: 'no agent phone' };
     const { data: agent } = await supabase.from('profiles').select('phone').eq('id', agentId).single();
     if (agent?.phone) {
       const callResult = await callService.bridgeCall({
@@ -158,7 +188,8 @@ export async function POST(request: Request) {
         success: callResult.success,
         callSid: callResult.callSid,
         dryRun: callResult.dryRun,
-        error: callResult.error,
+        errorCode: callResult.errorCode || null,
+        error: callResult.error || null,
         agentPhone: agent.phone,
         fromNumber: settings?.exotel_caller_id || settings?.twilio_phone_number,
       };
@@ -177,7 +208,13 @@ export async function POST(request: Request) {
         lead_id: lead.id,
         user_id: agentId,
         type: 'call',
-        title: callResult.dryRun ? 'Bridge call simulated (dry-run)' : 'Bridge call initiated',
+        title: callResult.dryRun
+          ? 'Bridge call simulated (dry-run)'
+          : callResult.success
+            ? 'Bridge call initiated'
+            : callResult.errorCode === 'kyc_pending'
+              ? 'Bridge call blocked: Exotel KYC pending'
+              : 'Bridge call failed',
         description: callResult.error || null,
       });
     } else {

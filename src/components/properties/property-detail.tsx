@@ -42,6 +42,15 @@ export function PropertyDetail({ property }: { property: any }) {
       {/* Price + Key Info */}
       <Card>
         <CardContent className="p-4">
+          {property.project && (
+            <div className="mb-3 rounded-lg bg-indigo-50 px-3 py-2">
+              <p className="text-sm font-semibold text-indigo-950">{property.project.name}</p>
+              <p className="text-xs text-indigo-700">
+                {property.project.builder_name || 'Independent'} · {property.project.locality}
+                {property.project.micro_market ? ` · ${property.project.micro_market}` : ''}
+              </p>
+            </div>
+          )}
           <p className="text-2xl font-bold text-gray-900 mb-2">{formatCurrency(property.price)}</p>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
             <MapPin className="h-4 w-4" /> {property.location}

@@ -7,8 +7,8 @@ Mobile-first Real Estate CRM for managing leads, properties, calls, follow-ups, 
 - **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS
 - **Backend**: Next.js Server Actions + API Routes
 - **Database**: Supabase (Postgres + Auth + Storage + Realtime)
-- **Voice Calls**: Twilio Voice (bridge call automation)
-- **Messaging**: Twilio WhatsApp/SMS
+- **Voice Calls**: Exotel Voice (bridge call automation)
+- **Messaging**: Exotel WhatsApp/SMS
 - **Email**: Resend
 - **Hosting**: Vercel
 
@@ -18,7 +18,7 @@ Mobile-first Real Estate CRM for managing leads, properties, calls, follow-ups, 
 
 - Node.js 18+
 - Supabase account (free tier works)
-- (Optional) Twilio account for voice/SMS
+- (Optional) Exotel account for voice/SMS
 - (Optional) Resend account for email
 
 ### 2. Setup
@@ -40,6 +40,9 @@ cp .env.example .env.local
 3. Go to **SQL Editor** and run:
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_rls_policies.sql`
+   - `supabase/migrations/003_ai_settings.sql`
+   - `supabase/migrations/004_exotel_settings.sql`
+   - `supabase/migrations/005_project_inventory.sql`
 4. (Optional) After first signup, run `supabase/seed/seed.sql` for demo data
 
 ### 4. Run Development Server
@@ -58,21 +61,25 @@ npx vercel
 
 Set environment variables in Vercel dashboard.
 
-## Twilio Setup (Optional)
+## Exotel Setup (Optional)
 
-1. Create a Twilio account at [twilio.com](https://www.twilio.com)
-2. Get a phone number with Voice + SMS capabilities
+1. Create an Exotel account and note your Account SID, API Key, API Token, and ExoPhone
 3. Set in `.env.local`:
-   - `TWILIO_ACCOUNT_SID`
-   - `TWILIO_AUTH_TOKEN`
-   - `TWILIO_PHONE_NUMBER`
-4. For WhatsApp: Enable Twilio WhatsApp Sandbox or get approved sender
+   - `EXOTEL_ACCOUNT_SID`
+   - `EXOTEL_API_KEY`
+   - `EXOTEL_API_TOKEN`
+   - `EXOTEL_CALLER_ID`
+   - `EXOTEL_SUBDOMAIN`
+4. For WhatsApp: set `WHATSAPP_SENDER_NUMBER`
 5. Set `DRY_RUN=false` to enable real calls
 
-### Twilio Webhooks
+### Exotel Voice Endpoint
 
-Set these URLs in your Twilio console:
-- Voice Status Callback: `https://your-app.vercel.app/api/calls/status`
+Outbound bridge calls use:
+- `POST https://<api_key>:<api_token>@<subdomain>/v1/Accounts/<your_sid>/Calls/connect`
+
+Set `StatusCallback` to:
+- `https://your-app.vercel.app/api/calls/status`
 
 ## Lead Webhook
 
@@ -122,8 +129,8 @@ Set `WEBHOOK_SECRET` and include `x-webhook-signature` header (HMAC-SHA256 of re
 
 - **Dashboard**: Stats, hot leads, due follow-ups, recent activity
 - **Lead Management**: Full CRUD, filters, search, timeline, status pipeline
-- **Instant Call Bridge**: Auto-calls agent then connects to lead via Twilio conference
-- **Property Inventory**: Listings with photos, search, filters, share links
+- **Instant Call Bridge**: Auto-calls agent and then connects the lead via Exotel
+- **Property Inventory**: Project/society catalog with unit inventory, Bengaluru filters, photos, and share links
 - **One-Click Sharing**: Send property details via WhatsApp/SMS/Email
 - **Follow-Up System**: Templates, scheduling, snooze, completion tracking
 - **Attendance**: GPS check-in/out, admin dashboard, history
@@ -134,7 +141,7 @@ Set `WEBHOOK_SECRET` and include `x-webhook-signature` header (HMAC-SHA256 of re
 
 ## Dry Run Mode
 
-Set `DRY_RUN=true` (default) to simulate all external API calls (Twilio, WhatsApp, Email). All calls are logged to console instead of making real API requests.
+Set `DRY_RUN=true` (default) to simulate all external API calls (Exotel, WhatsApp, Email). All calls are logged to console instead of making real API requests.
 
 ## Architecture
 
@@ -162,5 +169,5 @@ src/
 │   ├── hooks/           # React hooks
 │   └── utils/           # Utilities
 ├── types/               # TypeScript types
-└── middleware.ts         # Auth middleware
+└── proxy.ts              # Auth proxy
 ```

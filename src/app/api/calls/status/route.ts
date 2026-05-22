@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
+function normalizeOutcome(status: string) {
+  switch (status) {
+    case 'completed':
+      return 'connected';
+    case 'no-answer':
+      return 'no_answer';
+    case 'busy':
+      return 'busy';
+    default:
+      return null;
+  }
+}
+
 export async function POST(request: Request) {
   let callSid = '';
   let callStatus = '';
@@ -36,12 +49,15 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceRoleClient();
+  const normalizedStatus = callStatus.trim().toLowerCase();
+  const terminal = ['completed', 'failed', 'busy', 'no-answer', 'terminated'].includes(normalizedStatus);
 
   await supabase.from('calls').update({
-    status: callStatus,
+    status: normalizedStatus || callStatus,
     duration: callDuration ? parseInt(callDuration) : null,
     recording_url: recordingUrl || null,
-    ended_at: (callStatus === 'completed' || callStatus === 'terminated') ? new Date().toISOString() : null,
+    outcome: normalizeOutcome(normalizedStatus),
+    ended_at: terminal ? new Date().toISOString() : null,
   }).eq('call_sid', callSid);
 
   return NextResponse.json({ success: true });
