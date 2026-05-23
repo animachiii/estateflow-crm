@@ -232,7 +232,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-gray-500">
-              Populate your org with 25 sample leads, 12 properties, follow-ups, and activity history. Useful for exploring the app.
+              Populate your org with Bengaluru-focused leads, project-linked inventory, follow-ups, and activity history so the new society and locality filters are immediately useful.
             </p>
             {demoMsg && (
               <div className={`text-sm px-3 py-2 rounded-lg ${demoMsg.startsWith('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
@@ -241,7 +241,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
             )}
             <div className="flex gap-2 flex-wrap">
               <Button onClick={handleLoadDemo} loading={demoBusy === 'load'} loadingText="Loading...">
-                <Database className="h-4 w-4" /> Load Demo Data
+                <Database className="h-4 w-4" /> Load Bengaluru Demo Data
               </Button>
               {isAdmin && (
                 <Button variant="outline" onClick={handleClearDemo} loading={demoBusy === 'clear'} loadingText="Clearing...">
