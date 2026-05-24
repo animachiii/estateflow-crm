@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarCheck, Share2, UsersRound, Settings, BarChart3, Bell, ChevronRight } from 'lucide-react';
+import { CalendarCheck, UsersRound, Settings, BarChart3, Bell, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 const items = [
   { href: '/attendance', icon: CalendarCheck, label: 'Attendance', color: 'text-teal-600 bg-teal-50' },
-  { href: '/social', icon: Share2, label: 'Social Media', color: 'text-pink-600 bg-pink-50' },
   { href: '/team', icon: UsersRound, label: 'Team', color: 'text-blue-600 bg-blue-50' },
   { href: '/reports', icon: BarChart3, label: 'Reports', color: 'text-purple-600 bg-purple-50' },
   { href: '/notifications', icon: Bell, label: 'Notifications', color: 'text-orange-600 bg-orange-50' },

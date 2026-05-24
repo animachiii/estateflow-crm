@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Search, Phone, MessageSquare, Filter } from 'lucide-react';
+import { Mic, Plus, Search, Phone, MessageSquare, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -12,9 +12,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Users } from 'lucide-react';
 import { cn, LEAD_STATUS_COLORS, TEMP_COLORS, STATUS_LABELS, SOURCE_LABELS, formatPhone, timeAgo } from '@/lib/utils';
 import { useState } from 'react';
+import type { Lead } from '@/types';
 
 interface LeadsListProps {
-  leads: any[];
+  leads: Lead[];
   agents: { id: string; full_name: string }[];
   filters: { status: string; source: string; temperature: string; agent: string; q: string };
 }
@@ -40,9 +41,14 @@ export function LeadsList({ leads, agents, filters }: LeadsListProps) {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Leads</h1>
-        <Link href="/leads/new">
-          <Button size="sm"><Plus className="h-4 w-4" /> Add</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/leads/voice">
+            <Button size="sm" variant="secondary"><Mic className="h-4 w-4" /> Voice</Button>
+          </Link>
+          <Link href="/leads/new">
+            <Button size="sm"><Plus className="h-4 w-4" /> Add</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Search */}

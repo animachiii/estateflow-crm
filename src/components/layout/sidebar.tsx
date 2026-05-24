@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Users, Building2, Clock, CalendarCheck, Share2,
+  LayoutDashboard, Users, Building2, Clock, CalendarCheck,
   UsersRound, Settings, BarChart3, Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,6 @@ const links = [
   { href: '/properties', icon: Building2, label: 'Properties' },
   { href: '/followups', icon: Clock, label: 'Follow-ups' },
   { href: '/attendance', icon: CalendarCheck, label: 'Attendance' },
-  { href: '/social', icon: Share2, label: 'Social Media' },
   { href: '/team', icon: UsersRound, label: 'Team' },
   { href: '/reports', icon: BarChart3, label: 'Reports' },
   { href: '/notifications', icon: Bell, label: 'Notifications' },
