@@ -21,10 +21,11 @@ interface Props {
 }
 
 export function SettingsContent({ profile, org, settings }: Props) {
+  const integrationSettings = settings || {};
   const [integrationsState, saveIntegrations, savingIntegrations] = useActionState(saveIntegrationSettings, null);
   const [phoneState, savePhone, savingPhone] = useActionState(updateProfilePhone, null);
   const [message, setMessage] = useState('');
-  const [aiProvider, setAiProvider] = useState<AiProvider>((settings?.ai_provider as AiProvider) || 'gemini');
+  const [aiProvider, setAiProvider] = useState<AiProvider>((integrationSettings.ai_provider as AiProvider) || 'gemini');
 
   // Surface action results as a toast-style banner
   useEffect(() => {
@@ -115,7 +116,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
       )}
 
       {/* Integrations */}
-      {profile.role === 'admin' && settings && (
+      {profile.role === 'admin' && (
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
           <CardContent>
@@ -123,47 +124,51 @@ export function SettingsContent({ profile, org, settings }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel Account SID</label>
-                  <Input name="exotel_account_sid" defaultValue={settings.exotel_account_sid || ''} placeholder="e.g. your_account_sid" />
+                  <Input name="exotel_account_sid" defaultValue={integrationSettings.exotel_account_sid || ''} placeholder="e.g. your_account_sid" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel API Key</label>
-                  <Input name="exotel_api_key" defaultValue={settings.exotel_api_key || ''} placeholder="e.g. your_api_key" />
+                  <Input name="exotel_api_key" defaultValue={integrationSettings.exotel_api_key || ''} placeholder="e.g. your_api_key" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel API Token</label>
-                  <Input name="exotel_api_token" type="password" defaultValue={settings.exotel_api_token || ''} placeholder="e.g. your_api_token" />
+                  <Input name="exotel_api_token" type="password" defaultValue={integrationSettings.exotel_api_token || ''} placeholder="e.g. your_api_token" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel Caller ID (ExoPhone)</label>
-                  <Input name="exotel_caller_id" defaultValue={settings.exotel_caller_id || ''} placeholder="e.g. 080xxxxxxx" />
+                  <Input name="exotel_caller_id" defaultValue={integrationSettings.exotel_caller_id || ''} placeholder="e.g. 080xxxxxxx" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel Subdomain / Region</label>
-                  <Input name="exotel_subdomain" defaultValue={settings.exotel_subdomain || 'api.in.exotel.com'} placeholder="api.in.exotel.com" />
+                  <Input name="exotel_subdomain" defaultValue={integrationSettings.exotel_subdomain || 'api.in.exotel.com'} placeholder="api.in.exotel.com" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">WhatsApp Sender (ExoPhone)</label>
-                  <Input name="whatsapp_sender_number" defaultValue={settings.whatsapp_sender_number || ''} placeholder="e.g. +91..." />
+                  <Input name="whatsapp_sender_number" defaultValue={integrationSettings.whatsapp_sender_number || ''} placeholder="e.g. +91..." />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel DLT Entity ID</label>
-                  <Input name="exotel_dlt_entity_id" defaultValue={settings.exotel_dlt_entity_id || ''} placeholder="For SMS compliance in India" />
+                  <Input name="exotel_dlt_entity_id" defaultValue={integrationSettings.exotel_dlt_entity_id || ''} placeholder="For SMS compliance in India" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Exotel DLT Template ID</label>
-                  <Input name="exotel_dlt_template_id" defaultValue={settings.exotel_dlt_template_id || ''} placeholder="For SMS compliance in India" />
+                  <Input name="exotel_dlt_template_id" defaultValue={integrationSettings.exotel_dlt_template_id || ''} placeholder="For SMS compliance in India" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Resend API Key</label>
-                  <Input name="resend_api_key" type="password" defaultValue={settings.resend_api_key || ''} />
+                  <Input name="resend_api_key" type="password" defaultValue={integrationSettings.resend_api_key || ''} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Reminder From Email</label>
+                  <Input name="resend_from_email" defaultValue={integrationSettings.resend_from_email || ''} placeholder="reminders@yourdomain.com" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Webhook Secret</label>
-                  <Input name="webhook_secret" defaultValue={settings.webhook_secret || ''} />
+                  <Input name="webhook_secret" defaultValue={integrationSettings.webhook_secret || ''} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Lead Assignment</label>
-                  <Select name="lead_assignment_mode" defaultValue={settings.lead_assignment_mode}>
+                  <Select name="lead_assignment_mode" defaultValue={integrationSettings.lead_assignment_mode || 'round_robin'}>
                     <option value="round_robin">Round Robin</option>
                     <option value="manual">Manual</option>
                     <option value="least_busy">Least Busy Agent</option>
@@ -201,7 +206,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
                         Get key <ExternalLink className="h-3 w-3" />
                       </a>
                     </label>
-                    <Input name="ai_api_key" type="password" defaultValue={settings.ai_api_key || ''} placeholder="Paste API key" />
+                    <Input name="ai_api_key" type="password" defaultValue={integrationSettings.ai_api_key || ''} placeholder="Paste API key" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -209,7 +214,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
                     </label>
                     <Input
                       name="ai_model"
-                      defaultValue={settings.ai_model || ''}
+                      defaultValue={integrationSettings.ai_model || ''}
                       placeholder="e.g. gemini-2.5-flash, llama-3.3-70b-versatile, gpt-4o-mini, claude-haiku-4-5"
                     />
                   </div>

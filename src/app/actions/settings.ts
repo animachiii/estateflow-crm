@@ -44,7 +44,7 @@ export async function saveIntegrationSettings(_prev: unknown, formData: FormData
     exotel_dlt_entity_id: ((formData.get('exotel_dlt_entity_id') as string) || '').trim() || null,
     exotel_dlt_template_id: ((formData.get('exotel_dlt_template_id') as string) || '').trim() || null,
     whatsapp_sender_number: (formData.get('whatsapp_sender_number') as string) || null,
-    resend_api_key: (formData.get('resend_api_key') as string) || null,
+    resend_api_key: ((formData.get('resend_api_key') as string) || '').trim() || null,
     webhook_secret: (formData.get('webhook_secret') as string) || null,
     lead_assignment_mode: (formData.get('lead_assignment_mode') as string) || 'round_robin',
   };
@@ -69,25 +69,34 @@ export async function saveIntegrationSettings(_prev: unknown, formData: FormData
     return { error: 'Save returned no data — possible RLS or constraint issue' };
   }
 
-  // AI columns — only attempt if any AI field has a value. Silently no-op if
-  // migration 003 hasn't been applied yet.
-  const aiKey = formData.get('ai_api_key') as string;
-  const aiProvider = formData.get('ai_provider') as string;
-  const aiModel = formData.get('ai_model') as string;
+  const aiKey = ((formData.get('ai_api_key') as string) || '').trim();
+  const aiProvider = ((formData.get('ai_provider') as string) || 'gemini').trim();
+  const aiModel = ((formData.get('ai_model') as string) || '').trim();
 
-  if (aiKey || aiProvider || aiModel) {
-    const { error: aiError } = await service
-      .from('integration_settings')
-      .update({
-        ai_provider: aiProvider || 'gemini',
-        ai_api_key: aiKey || null,
-        ai_model: aiModel || null,
-      })
-      .eq('organization_id', orgId);
+  const { error: aiError } = await service
+    .from('integration_settings')
+    .update({
+      ai_provider: aiProvider,
+      ai_api_key: aiKey || null,
+      ai_model: aiModel || null,
+    })
+    .eq('organization_id', orgId);
 
-    if (aiError && !/ai_provider|ai_api_key|ai_model|does not exist/i.test(aiError.message)) {
-      return { error: `AI save failed: ${aiError.message}` };
+  if (aiError) {
+    if (/ai_provider|ai_api_key|ai_model|does not exist/i.test(aiError.message)) {
+      return { error: 'AI settings columns are missing. Run supabase/migrations/003_ai_settings.sql in Supabase, then save again.' };
     }
+    return { error: `AI save failed: ${aiError.message}` };
+  }
+
+  const resendFromEmail = ((formData.get('resend_from_email') as string) || '').trim() || null;
+  const { error: senderError } = await service
+    .from('integration_settings')
+    .update({ resend_from_email: resendFromEmail })
+    .eq('organization_id', orgId);
+
+  if (senderError && !/resend_from_email|does not exist/i.test(senderError.message)) {
+    return { error: `Reminder sender save failed: ${senderError.message}` };
   }
 
   revalidatePath('/settings');

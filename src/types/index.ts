@@ -28,6 +28,8 @@ export type ActivityType = 'call' | 'message' | 'note' | 'follow_up' | 'property
 
 export type AssignmentMode = 'round_robin' | 'manual' | 'least_busy';
 
+export type AiProvider = 'gemini' | 'groq' | 'openai' | 'anthropic';
+
 export interface Organization {
   id: string;
   name: string;
@@ -236,11 +238,15 @@ export interface IntegrationSettings {
   exotel_dlt_template_id: string | null;
   whatsapp_sender_number: string | null;
   resend_api_key: string | null;
+  resend_from_email: string | null;
   smtp_host: string | null;
   smtp_port: number | null;
   smtp_user: string | null;
   smtp_pass: string | null;
   openai_api_key: string | null;
+  ai_provider: AiProvider | null;
+  ai_api_key: string | null;
+  ai_model: string | null;
   webhook_secret: string | null;
   lead_assignment_mode: AssignmentMode;
   created_at: string;

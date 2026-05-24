@@ -16,16 +16,27 @@ async function getOrgAiConfig(): Promise<{ config?: AiConfig; orgId?: string; er
     .single();
   if (!profile) return { error: 'Profile not found' };
 
-  const { data: settings } = await supabase
+  const { data: settings, error: settingsError } = await supabase
     .from('integration_settings')
-    .select('ai_provider, ai_api_key, ai_model')
+    .select('ai_provider, ai_api_key, ai_model, openai_api_key')
     .eq('organization_id', profile.organization_id)
     .single();
 
+  if (settingsError) {
+    if (/ai_provider|ai_api_key|ai_model|does not exist/i.test(settingsError.message)) {
+      return { error: 'AI settings columns are missing. Run supabase/migrations/003_ai_settings.sql in Supabase, then save your API key again.' };
+    }
+    return { error: `Could not load AI settings: ${settingsError.message}` };
+  }
+
+  if (!settings) {
+    return { error: 'AI is not configured. Go to Settings -> AI Assistant to add a provider.' };
+  }
+
   const config = {
-    provider: settings?.ai_provider,
-    apiKey: settings?.ai_api_key,
-    model: settings?.ai_model || undefined,
+    provider: settings.ai_provider || (settings.openai_api_key ? 'openai' : undefined),
+    apiKey: settings.ai_api_key || settings.openai_api_key,
+    model: settings.ai_model || undefined,
   };
 
   if (!isAiConfigured(config)) {

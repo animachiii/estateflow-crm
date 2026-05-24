@@ -7,8 +7,12 @@ export default async function SettingsPage() {
   if (!user) return null;
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  const { data: org } = await supabase.from('organizations').select('*').single();
-  const { data: settings } = await supabase.from('integration_settings').select('*').single();
+  if (!profile) return null;
 
-  return <SettingsContent profile={profile!} org={org} settings={settings} />;
+  const [{ data: org }, { data: settings }] = await Promise.all([
+    supabase.from('organizations').select('*').eq('id', profile.organization_id).single(),
+    supabase.from('integration_settings').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
+  ]);
+
+  return <SettingsContent profile={profile} org={org} settings={settings} />;
 }
