@@ -587,7 +587,7 @@ export async function importPropertiesCsv(_prevState: unknown, formData: FormDat
 }
 
 export async function updateProperty(propertyId: string, _prevState: unknown, formData: FormData) {
-  const { supabase } = await getAuthProfile();
+  const { supabase, profile } = await getAuthProfile();
 
   const raw = Object.fromEntries(formData.entries());
   const amenities = formData.get('amenities')
@@ -602,12 +602,17 @@ export async function updateProperty(propertyId: string, _prevState: unknown, fo
     return { error: parsed.error.issues.map(e => e.message).join(', ') };
   }
 
-  const { error } = await supabase.from('properties').update(parsed.data).eq('id', propertyId);
+  const { error } = await supabase
+    .from('properties')
+    .update(parsed.data)
+    .eq('id', propertyId)
+    .eq('organization_id', profile.organization_id);
   if (error) return { error: error.message };
 
   revalidatePath(`/properties/${propertyId}`);
   revalidatePath('/properties');
-  return { success: true };
+  revalidatePath('/properties/new');
+  redirect(`/properties/${propertyId}`);
 }
 
 export async function deleteProperty(propertyId: string) {

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Building2, Bed, Bath, Maximize, Tag } from 'lucide-react';
+import { ArrowLeft, MapPin, Building2, Bed, Bath, Maximize, Tag, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 
 const availabilityColors: Record<string, string> = {
@@ -21,6 +22,11 @@ export function PropertyDetail({ property }: { property: any }) {
       <div className="flex items-center gap-2">
         <Link href="/properties"><ArrowLeft className="h-5 w-5 text-gray-500" /></Link>
         <h1 className="text-lg font-bold text-gray-900 flex-1">{property.title}</h1>
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/properties/${property.id}/edit`}>
+            <Pencil className="h-4 w-4" /> Edit
+          </Link>
+        </Button>
         <Badge className={availabilityColors[property.availability]}>{property.availability}</Badge>
       </div>
 
