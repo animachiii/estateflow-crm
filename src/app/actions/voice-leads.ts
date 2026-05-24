@@ -25,6 +25,13 @@ type IntegrationSettings = {
   openai_api_key: string | null;
 };
 
+type TranscriptionConfig = {
+  provider: 'groq' | 'openai';
+  apiKey: string;
+  model: string;
+  endpoint: string;
+};
+
 async function getAuthContext() {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,11 +47,40 @@ async function getAuthContext() {
   return { supabase, user, profile };
 }
 
-function getOpenAiTranscriptionKey(settings: IntegrationSettings | null) {
-  const envKey = process.env.OPENAI_API_KEY?.trim();
-  if (envKey) return envKey;
-  if (settings?.ai_provider === 'openai' && settings.ai_api_key) return settings.ai_api_key;
-  return settings?.openai_api_key || null;
+function cleanEnv(value: string | undefined) {
+  return value?.trim() || undefined;
+}
+
+function getTranscriptionConfig(settings: IntegrationSettings | null): TranscriptionConfig | null {
+  const envProvider = cleanEnv(process.env.AI_PROVIDER);
+  const groqKey = cleanEnv(process.env.GROQ_API_KEY)
+    || (envProvider === 'groq' ? cleanEnv(process.env.AI_API_KEY) : undefined)
+    || (settings?.ai_provider === 'groq' ? settings.ai_api_key?.trim() : undefined);
+
+  if (groqKey) {
+    return {
+      provider: 'groq',
+      apiKey: groqKey,
+      model: cleanEnv(process.env.GROQ_TRANSCRIPTION_MODEL) || 'whisper-large-v3-turbo',
+      endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+    };
+  }
+
+  const openAiKey = cleanEnv(process.env.OPENAI_API_KEY)
+    || (envProvider === 'openai' ? cleanEnv(process.env.AI_API_KEY) : undefined)
+    || (settings?.ai_provider === 'openai' ? settings.ai_api_key?.trim() : undefined)
+    || settings?.openai_api_key?.trim();
+
+  if (openAiKey) {
+    return {
+      provider: 'openai',
+      apiKey: openAiKey,
+      model: 'whisper-1',
+      endpoint: 'https://api.openai.com/v1/audio/transcriptions',
+    };
+  }
+
+  return null;
 }
 
 function getParsingConfig(settings: IntegrationSettings | null): AiConfig | null {
@@ -60,19 +96,20 @@ function getParsingConfig(settings: IntegrationSettings | null): AiConfig | null
   return isAiConfigured(config) ? config : null;
 }
 
-async function transcribeAudio(audio: File, apiKey: string) {
+async function transcribeAudio(audio: File, config: TranscriptionConfig) {
   const body = new FormData();
   body.append('file', audio, audio.name || 'voice-note.webm');
-  body.append('model', 'whisper-1');
+  body.append('model', config.model);
+  body.append('response_format', 'json');
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const response = await fetch(config.endpoint, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${config.apiKey}` },
     body,
   });
 
   if (!response.ok) {
-    throw new Error(`Voice transcription failed: ${await response.text()}`);
+    throw new Error(`${config.provider} voice transcription failed: ${await response.text()}`);
   }
 
   const data = await response.json();
@@ -152,18 +189,18 @@ export async function createLeadFromVoiceNote(formData: FormData) {
       return { error: `Could not load AI settings: ${settingsError.message}` };
     }
 
-    const openAiKey = getOpenAiTranscriptionKey(settings);
-    if (!openAiKey) {
-      return { error: 'OpenAI key is required for voice transcription. Add OpenAI in Settings -> AI Assistant or set OPENAI_API_KEY on Vercel.' };
+    const transcriptionConfig = getTranscriptionConfig(settings);
+    if (!transcriptionConfig) {
+      return { error: 'Groq key is required for voice transcription. Add GROQ_API_KEY on Vercel or save Groq in Settings -> AI Assistant.' };
     }
 
     const parsingConfig = getParsingConfig(settings) || {
-      provider: 'openai' as const,
-      apiKey: openAiKey,
-      model: 'gpt-4o-mini',
+      provider: transcriptionConfig.provider === 'groq' ? 'groq' as const : 'openai' as const,
+      apiKey: transcriptionConfig.apiKey,
+      model: transcriptionConfig.provider === 'groq' ? undefined : 'gpt-4o-mini',
     };
 
-    const transcript = await transcribeAudio(audio, openAiKey);
+    const transcript = await transcribeAudio(audio, transcriptionConfig);
     if (!transcript) {
       return { error: 'Could not hear anything in the voice note.' };
     }
