@@ -131,6 +131,7 @@ Set `WEBHOOK_SECRET` and include `x-webhook-signature` header (HMAC-SHA256 of re
 - **Lead Management**: Full CRUD, filters, search, timeline, status pipeline
 - **Instant Call Bridge**: Auto-calls agent and then connects the lead via Exotel
 - **Property Inventory**: Project/society catalog with unit inventory, Bengaluru filters, photos, and share links
+- **Bulk Inventory Import**: CSV upload with project matching, auto-created societies, and import error reporting
 - **One-Click Sharing**: Send property details via WhatsApp/SMS/Email
 - **Follow-Up System**: Templates, scheduling, snooze, completion tracking
 - **Attendance**: GPS check-in/out, admin dashboard, history

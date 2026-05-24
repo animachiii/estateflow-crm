@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus, Search, Building2, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Plus, Search, Building2, MapPin, SlidersHorizontal, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -56,9 +56,14 @@ export function PropertiesList({ properties, projects, filters }: Props) {
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Properties</h1>
-        <Link href="/properties/new">
-          <Button size="sm"><Plus className="h-4 w-4" /> Add</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/properties/new#import-csv">
+            <Button size="sm" variant="outline"><Upload className="h-4 w-4" /> Import CSV</Button>
+          </Link>
+          <Link href="/properties/new">
+            <Button size="sm"><Plus className="h-4 w-4" /> Add</Button>
+          </Link>
+        </div>
       </div>
 
       <form action="/properties" className="space-y-3 rounded-lg bg-white p-3 ring-1 ring-slate-900/[0.06]">
