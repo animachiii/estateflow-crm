@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -12,6 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { inviteTeamMember } from '@/app/actions/auth';
 import type { Profile } from '@/types';
+
+type TeamMember = Profile & {
+  invite_status?: 'active' | 'create_account';
+  invited_at?: string | null;
+};
 
 const roleLabels: Record<string, string> = {
   admin: 'Admin',
@@ -30,13 +34,13 @@ const roleColors: Record<string, string> = {
 };
 
 interface Props {
-  members: Profile[];
+  members: TeamMember[];
   currentProfile: Profile;
 }
 
 export function TeamPage({ members, currentProfile }: Props) {
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteResult, setInviteResult] = useState<any>(null);
+  const [inviteResult, setInviteResult] = useState<{ error?: string; success?: boolean; message?: string } | null>(null);
   const isAdmin = currentProfile.role === 'admin' || currentProfile.role === 'sales_manager';
 
   return (
@@ -44,11 +48,18 @@ export function TeamPage({ members, currentProfile }: Props) {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Team</h1>
         {isAdmin && (
-          <Button size="sm" onClick={() => setShowInvite(!showInvite)}>
+          <Button size="sm" onClick={() => {
+            setShowInvite(!showInvite);
+            if (!showInvite) setInviteResult(null);
+          }}>
             <UserPlus className="h-4 w-4" /> Invite
           </Button>
         )}
       </div>
+
+      {inviteResult?.success && (
+        <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">{inviteResult.message}</div>
+      )}
 
       {showInvite && (
         <Card>
@@ -59,7 +70,6 @@ export function TeamPage({ members, currentProfile }: Props) {
               if (result.success) setShowInvite(false);
             }} className="space-y-3">
               {inviteResult?.error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{inviteResult.error}</div>}
-              {inviteResult?.success && <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">Invited! Temp password: {inviteResult.tempPassword}</div>}
               <div className="grid grid-cols-2 gap-3">
                 <Input name="full_name" placeholder="Full Name" required />
                 <Input name="email" type="email" placeholder="Email" required />
@@ -87,6 +97,16 @@ export function TeamPage({ members, currentProfile }: Props) {
                 <p className="text-xs text-gray-500">{m.email}</p>
               </div>
               <Badge className={roleColors[m.role]}>{roleLabels[m.role]}</Badge>
+              {m.invite_status === 'create_account' && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 ring-amber-200">
+                  Create account
+                </Badge>
+              )}
+              {m.invite_status === 'active' && (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 ring-emerald-200">
+                  Active
+                </Badge>
+              )}
               {!m.is_active && <Badge variant="outline" className="text-red-500">Inactive</Badge>}
             </CardContent>
           </Card>

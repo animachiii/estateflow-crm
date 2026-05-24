@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { getSupabaseSetupError } from '@/lib/supabase/config';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof TypeError && error.message === 'fetch failed') {
@@ -11,6 +12,21 @@ function getAuthErrorMessage(error: unknown) {
   }
 
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+}
+
+async function getRequestOrigin() {
+  const headersList = await headers();
+  const forwardedHost = headersList.get('x-forwarded-host');
+  const host = forwardedHost || headersList.get('host');
+  const forwardedProto = headersList.get('x-forwarded-proto');
+
+  if (host) {
+    const proto = forwardedProto || (host.startsWith('localhost') ? 'http' : 'https');
+    return `${proto}://${host}`;
+  }
+
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  return configuredUrl?.replace(/\/$/, '') || '';
 }
 
 export async function signIn(_prevState: unknown, formData: FormData) {
@@ -155,26 +171,35 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
     return { error: 'Only admins and managers can invite members' };
   }
 
-  const email = formData.get('email') as string;
-  const fullName = formData.get('full_name') as string;
+  const email = ((formData.get('email') as string) || '').trim().toLowerCase();
+  const fullName = ((formData.get('full_name') as string) || '').trim();
   const role = formData.get('role') as string;
-  const phone = formData.get('phone') as string;
+  const phone = ((formData.get('phone') as string) || '').trim();
 
   if (!email || !fullName || !role) return { error: 'All fields are required' };
+  if (!['sales_manager', 'sales_agent', 'field_executive', 'social_media_manager'].includes(role)) {
+    return { error: 'Invalid role selected' };
+  }
 
-  const tempPassword = `Welcome${Date.now()}!`;
-  const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { full_name: fullName },
+  const { data: existingProfile } = await serviceClient
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (existingProfile) return { error: 'A team member with this email already exists.' };
+
+  const origin = await getRequestOrigin();
+  const { data: invitedUser, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: fullName },
+    redirectTo: origin ? `${origin}/api/auth/callback` : undefined,
   });
 
-  if (createError) return { error: createError.message };
-  if (!newUser.user) return { error: 'Failed to create user' };
+  if (inviteError) return { error: inviteError.message };
+  if (!invitedUser.user) return { error: 'Failed to send invite' };
 
-  await serviceClient.from('profiles').insert({
-    id: newUser.user.id,
+  const { error: profileError } = await serviceClient.from('profiles').insert({
+    id: invitedUser.user.id,
     email,
     full_name: fullName,
     phone: phone || null,
@@ -182,6 +207,8 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
     role,
   });
 
+  if (profileError) return { error: `Invite sent, but profile creation failed: ${profileError.message}` };
+
   revalidatePath('/team');
-  return { success: true, tempPassword };
+  return { success: true, message: 'Invite sent. They need to create an account to join the team.' };
 }
