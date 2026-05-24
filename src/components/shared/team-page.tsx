@@ -85,7 +85,7 @@ export function TeamPage({ members, currentProfile }: Props) {
                   <option value="social_media_manager">Social Media Manager</option>
                 </Select>
               </div>
-              <SubmitButton size="sm" loadingText="Sending...">Send Invite</SubmitButton>
+              <SubmitButton size="sm" loadingText="Sending...">Create & Email Login</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -109,7 +109,7 @@ export function TeamPage({ members, currentProfile }: Props) {
                 <Badge className={roleColors[m.role]}>{roleLabels[m.role]}</Badge>
                 {m.invite_status === 'create_account' && (
                   <Badge variant="outline" className="bg-amber-50 text-amber-700 ring-amber-200">
-                    Create account
+                    Login sent
                   </Badge>
                 )}
                 {m.invite_status === 'active' && (

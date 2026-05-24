@@ -2,7 +2,9 @@
 
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getSupabaseSetupError } from '@/lib/supabase/config';
-import { getConfiguredPublicAppUrl } from '@/lib/utils/app-url';
+import { emailService } from '@/lib/services/email-service';
+import { getBestAppUrl } from '@/lib/utils/app-url';
+import { randomBytes } from 'crypto';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -12,6 +14,10 @@ function getAuthErrorMessage(error: unknown) {
   }
 
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+}
+
+function generateTempPassword() {
+  return `Estate-${randomBytes(8).toString('base64url')}-9!`;
 }
 
 export async function signIn(_prevState: unknown, formData: FormData) {
@@ -172,19 +178,29 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
     .eq('email', email)
     .maybeSingle();
 
-  if (existingProfile) return { error: 'A team member with this email already exists.' };
+  if (existingProfile) {
+    return { error: 'A team member with this email already exists. Remove them first if you want to generate fresh login details.' };
+  }
 
-  const publicAppUrl = getConfiguredPublicAppUrl();
-  const { data: invitedUser, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: fullName },
-    redirectTo: publicAppUrl ? `${publicAppUrl}/login` : undefined,
+  const tempPassword = generateTempPassword();
+  const { data: createdUser, error: createError } = await serviceClient.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
   });
 
-  if (inviteError) return { error: inviteError.message };
-  if (!invitedUser.user) return { error: 'Failed to send invite' };
+  if (createError) {
+    const msg = createError.message || '';
+    if (/already registered|already exists|duplicate/i.test(msg)) {
+      return { error: 'An auth account with this email already exists. Remove the old account or reset their password.' };
+    }
+    return { error: msg || 'Failed to create team member account' };
+  }
+  if (!createdUser.user) return { error: 'Failed to create team member account' };
 
   const { error: profileError } = await serviceClient.from('profiles').insert({
-    id: invitedUser.user.id,
+    id: createdUser.user.id,
     email,
     full_name: fullName,
     phone: phone || null,
@@ -194,8 +210,32 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
 
   if (profileError) return { error: `Invite sent, but profile creation failed: ${profileError.message}` };
 
+  const loginUrl = `${getBestAppUrl()}/login`;
+  const emailResult = await emailService.send({
+    to: email,
+    subject: 'Your EstateFlow CRM login details',
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <h2 style="margin:0 0 12px">You have been added to EstateFlow CRM</h2>
+        <p>Hi ${fullName},</p>
+        <p>Your team account is ready. Sign in using these details:</p>
+        <p><strong>Login:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Temporary password:</strong> ${tempPassword}</p>
+        <p>Please sign in and change this password after your first login.</p>
+      </div>
+    `,
+  });
+
   revalidatePath('/team');
-  return { success: true, message: 'Invite sent. They need to create an account to join the team.' };
+  if (!emailResult.success) {
+    return {
+      success: true,
+      message: `Account created, but the email could not be sent: ${emailResult.error}. Temporary password: ${tempPassword}`,
+    };
+  }
+
+  return { success: true, message: 'Account created and login details emailed to the team member.' };
 }
 
 export async function deleteTeamMember(memberId: string) {
