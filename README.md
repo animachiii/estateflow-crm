@@ -61,6 +61,11 @@ npx vercel
 
 Set environment variables in Vercel dashboard.
 
+Important for invite emails and other outbound links:
+- Set `NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app`
+- In Supabase Auth, set **Site URL** to the same deployed domain and add your Vercel domain under **Redirect URLs**
+- If you trigger invites from local dev, keep `NEXT_PUBLIC_APP_URL=http://localhost:3000` for local browsing, but still point `NEXT_PUBLIC_SITE_URL` at production
+
 ## Exotel Setup (Optional)
 
 1. Create an Exotel account and note your Account SID, API Key, API Token, and ExoPhone

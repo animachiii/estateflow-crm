@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { webhookLeadSchema } from '@/lib/validators/lead';
 import { leadAssignmentService } from '@/lib/services/lead-assignment-service';
 import { callService } from '@/lib/services/call-service';
+import { getBestAppUrl } from '@/lib/utils/app-url';
 import crypto from 'crypto';
 
 function matchesWebhookSignature(secret: string, signature: string, body: string) {
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
         leadPhone: lead.phone,
         leadName: lead.full_name,
         source: normalizedSource,
-        callbackUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        callbackUrl: getBestAppUrl(),
         organizationId: org.id,
         exotelApiKey: settings?.exotel_api_key ?? undefined,
         exotelApiToken: settings?.exotel_api_token ?? undefined,

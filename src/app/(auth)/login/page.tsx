@@ -1,14 +1,24 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { signIn } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/lib/hooks/use-auth';
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signIn, null);
+  const router = useRouter();
+  const { profile, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && profile) {
+      router.replace('/');
+    }
+  }, [isLoading, profile, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">

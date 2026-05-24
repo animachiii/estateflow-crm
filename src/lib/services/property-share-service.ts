@@ -1,11 +1,12 @@
 import { messageService } from './message-service';
 import { emailService } from './email-service';
 import { formatCurrency } from '@/lib/utils';
+import { getBestAppUrl } from '@/lib/utils/app-url';
 import type { Lead, Property } from '@/types';
 
 export const propertyShareService = {
   generateShareLink(propertyId: string): string {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/share/property/${propertyId}`;
+    return `${getBestAppUrl()}/share/property/${propertyId}`;
   },
 
   async shareViaWhatsApp(lead: Lead, property: Property) {

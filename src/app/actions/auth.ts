@@ -2,9 +2,9 @@
 
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getSupabaseSetupError } from '@/lib/supabase/config';
+import { getConfiguredPublicAppUrl } from '@/lib/utils/app-url';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof TypeError && error.message === 'fetch failed') {
@@ -12,21 +12,6 @@ function getAuthErrorMessage(error: unknown) {
   }
 
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-}
-
-async function getRequestOrigin() {
-  const headersList = await headers();
-  const forwardedHost = headersList.get('x-forwarded-host');
-  const host = forwardedHost || headersList.get('host');
-  const forwardedProto = headersList.get('x-forwarded-proto');
-
-  if (host) {
-    const proto = forwardedProto || (host.startsWith('localhost') ? 'http' : 'https');
-    return `${proto}://${host}`;
-  }
-
-  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
-  return configuredUrl?.replace(/\/$/, '') || '';
 }
 
 export async function signIn(_prevState: unknown, formData: FormData) {
@@ -189,10 +174,10 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
 
   if (existingProfile) return { error: 'A team member with this email already exists.' };
 
-  const origin = await getRequestOrigin();
+  const publicAppUrl = getConfiguredPublicAppUrl();
   const { data: invitedUser, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName },
-    redirectTo: origin ? `${origin}/api/auth/callback` : undefined,
+    redirectTo: publicAppUrl ? `${publicAppUrl}/login` : undefined,
   });
 
   if (inviteError) return { error: inviteError.message };
@@ -211,4 +196,45 @@ export async function inviteTeamMember(_prevState: unknown, formData: FormData) 
 
   revalidatePath('/team');
   return { success: true, message: 'Invite sent. They need to create an account to join the team.' };
+}
+
+export async function deleteTeamMember(memberId: string) {
+  const setupError = getSupabaseSetupError();
+  if (setupError) return { error: setupError };
+
+  const supabase = await createServerSupabaseClient();
+  const serviceClient = createServiceRoleClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Unauthorized' };
+
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!currentProfile || currentProfile.role !== 'admin') {
+    return { error: 'Only admins can delete team members' };
+  }
+
+  if (memberId === user.id) {
+    return { error: 'You cannot delete your own admin account.' };
+  }
+
+  const { data: memberProfile } = await serviceClient
+    .from('profiles')
+    .select('id, full_name, organization_id')
+    .eq('id', memberId)
+    .maybeSingle();
+
+  if (!memberProfile || memberProfile.organization_id !== currentProfile.organization_id) {
+    return { error: 'Team member not found' };
+  }
+
+  const { error: deleteError } = await serviceClient.auth.admin.deleteUser(memberId);
+  if (deleteError) return { error: deleteError.message };
+
+  revalidatePath('/team');
+  return { success: true, message: `${memberProfile.full_name} was removed from the team.` };
 }
