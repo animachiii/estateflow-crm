@@ -48,7 +48,7 @@ export async function createLead(_prevState: unknown, formData: FormData) {
 }
 
 export async function updateLead(leadId: string, _prevState: unknown, formData: FormData) {
-  const { supabase, user, profile } = await getAuthProfile();
+  const { supabase } = await getAuthProfile();
 
   const raw = Object.fromEntries(formData.entries());
   const parsed = leadSchema.safeParse(raw);
@@ -65,7 +65,7 @@ export async function updateLead(leadId: string, _prevState: unknown, formData: 
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/leads');
-  return { success: true };
+  redirect(`/leads/${leadId}`);
 }
 
 export async function updateLeadStatus(leadId: string, status: string) {

@@ -18,6 +18,18 @@ type ParsedVoiceLead = {
   notes?: string | null;
 };
 
+export type VoiceLeadDraft = {
+  full_name: string;
+  phone: string;
+  email: string;
+  property_type: string;
+  budget_min: string;
+  budget_max: string;
+  preferred_location: string;
+  temperature: 'cold' | 'warm' | 'hot';
+  notes: string;
+};
+
 type IntegrationSettings = {
   ai_provider: AiProvider | null;
   ai_api_key: string | null;
@@ -166,9 +178,26 @@ function cleanNumber(value: number | null | undefined) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
 }
 
-export async function createLeadFromVoiceNote(formData: FormData) {
+function buildDraft(parsed: ParsedVoiceLead, transcript: string): VoiceLeadDraft {
+  return {
+    full_name: parsed.full_name?.trim() || '',
+    phone: normalizePhone(parsed.phone),
+    email: parsed.email?.trim() || '',
+    property_type: parsed.property_type || '',
+    budget_min: cleanNumber(parsed.budget_min)?.toString() || '',
+    budget_max: cleanNumber(parsed.budget_max)?.toString() || '',
+    preferred_location: parsed.preferred_location?.trim() || '',
+    temperature: parsed.temperature || 'warm',
+    notes: [
+      parsed.notes?.trim(),
+      `Voice transcript: ${transcript}`,
+    ].filter(Boolean).join('\n\n'),
+  };
+}
+
+export async function extractLeadFromVoiceNote(formData: FormData) {
   try {
-    const { supabase, user, profile } = await getAuthContext();
+    const { supabase, profile } = await getAuthContext();
     const audio = formData.get('audio');
 
     if (!(audio instanceof File) || audio.size === 0) {
@@ -206,36 +235,33 @@ export async function createLeadFromVoiceNote(formData: FormData) {
     }
 
     const parsed = await parseLeadFromTranscript(transcript, parsingConfig);
-    const phone = normalizePhone(parsed.phone);
+    return { success: true, transcript, draft: buildDraft(parsed, transcript) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Voice lead failed.' };
+  }
+}
 
-    if (!phone) {
-      return { error: 'I could not find a phone number in the voice note.', transcript };
-    }
-
-    const notes = [
-      parsed.notes?.trim(),
-      `Voice transcript: ${transcript}`,
-    ].filter(Boolean).join('\n\n');
-
+export async function createLeadFromVoiceDraft(formData: FormData) {
+  try {
+    const { supabase, user, profile } = await getAuthContext();
     const validation = leadSchema.safeParse({
-      full_name: parsed.full_name?.trim() || 'Voice lead',
-      phone,
-      email: parsed.email?.trim() || '',
+      full_name: ((formData.get('full_name') as string) || '').trim(),
+      phone: normalizePhone((formData.get('phone') as string) || ''),
+      email: ((formData.get('email') as string) || '').trim(),
       source: 'manual',
-      property_type: parsed.property_type || null,
-      budget_min: cleanNumber(parsed.budget_min),
-      budget_max: cleanNumber(parsed.budget_max),
-      preferred_location: parsed.preferred_location?.trim() || null,
+      property_type: ((formData.get('property_type') as string) || '') || null,
+      budget_min: ((formData.get('budget_min') as string) || '') || null,
+      budget_max: ((formData.get('budget_max') as string) || '') || null,
+      preferred_location: ((formData.get('preferred_location') as string) || '').trim() || null,
       status: 'new',
-      temperature: parsed.temperature || 'warm',
+      temperature: ((formData.get('temperature') as string) || 'warm'),
       assigned_agent_id: user.id,
-      notes,
+      notes: ((formData.get('notes') as string) || '').trim() || null,
     });
 
     if (!validation.success) {
       return {
         error: validation.error.issues.map((issue) => issue.message).join(', '),
-        transcript,
       };
     }
 
@@ -249,22 +275,23 @@ export async function createLeadFromVoiceNote(formData: FormData) {
       .single();
 
     if (leadError) {
-      return { error: leadError.message, transcript };
+      return { error: leadError.message };
     }
 
+    const transcript = ((formData.get('transcript') as string) || '').trim();
     await supabase.from('activities').insert({
       organization_id: profile.organization_id,
       lead_id: lead.id,
       user_id: user.id,
       type: 'note',
       title: 'Lead created from voice note',
-      description: transcript,
+      description: transcript || validation.data.notes,
       metadata: { source: 'voice_note' },
     });
 
     revalidatePath('/leads');
     return { success: true, leadId: lead.id, transcript };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Voice lead failed.' };
+    return { error: error instanceof Error ? error.message : 'Voice lead save failed.' };
   }
 }

@@ -114,6 +114,11 @@ export function LeadDetail({ lead, activities, followups, shares, agents, recomm
       <div className="flex items-center gap-2">
         <Link href="/leads"><ArrowLeft className="h-5 w-5 text-gray-500" /></Link>
         <h1 className="text-lg font-bold text-gray-900 flex-1">{lead.full_name}</h1>
+        <Link href={`/leads/${lead.id}/edit`}>
+          <Button size="icon-sm" variant="outline" aria-label="Edit lead">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </Link>
         <Badge className={cn('text-xs', TEMP_COLORS[lead.temperature])}>{lead.temperature}</Badge>
       </div>
 
