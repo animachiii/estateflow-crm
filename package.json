@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:playbook": "node --import jiti/register scripts/check-follow-up-playbook.ts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",

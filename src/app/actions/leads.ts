@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { leadSchema } from '@/lib/validators/lead';
+import { fillFollowUpTemplate, getLeadTemplateVars, getTemplateByKey } from '@/lib/services/follow-up-playbook';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -71,6 +72,7 @@ export async function updateLead(leadId: string, _prevState: unknown, formData: 
 export async function updateLeadStatus(leadId: string, status: string) {
   const { supabase, user, profile } = await getAuthProfile();
 
+  const { data: lead } = await supabase.from('leads').select('*').eq('id', leadId).single();
   await supabase.from('leads').update({ status }).eq('id', leadId);
   await supabase.from('activities').insert({
     organization_id: profile.organization_id,
@@ -80,8 +82,39 @@ export async function updateLeadStatus(leadId: string, status: string) {
     title: `Status changed to ${status}`,
   });
 
+  if (['won', 'lost'].includes(status)) {
+    await supabase
+      .from('followups')
+      .update({ status: 'cancelled' })
+      .eq('lead_id', leadId)
+      .in('status', ['pending', 'snoozed']);
+    await supabase.from('leads').update({ next_follow_up: null }).eq('id', leadId);
+  }
+
+  if (status === 'not_responding' && lead) {
+    await supabase
+      .from('followups')
+      .update({ status: 'cancelled' })
+      .eq('lead_id', leadId)
+      .in('status', ['pending', 'snoozed']);
+
+    const template = getTemplateByKey('dormant_reactivation')!;
+    const scheduledAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('followups').insert({
+      organization_id: profile.organization_id,
+      lead_id: leadId,
+      agent_id: lead.assigned_agent_id || user.id,
+      type: 'whatsapp',
+      status: 'pending',
+      scheduled_at: scheduledAt,
+      message: fillFollowUpTemplate(template.message, getLeadTemplateVars(lead)),
+    });
+    await supabase.from('leads').update({ temperature: 'cold', next_follow_up: scheduledAt }).eq('id', leadId);
+  }
+
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/leads');
+  revalidatePath('/followups');
 }
 
 export async function updateLeadTemperature(leadId: string, temperature: string) {

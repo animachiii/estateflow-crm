@@ -2,7 +2,31 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateText, isAiConfigured, type AiConfig } from '@/lib/services/ai-service';
+import { getVercelAiConfig } from '@/lib/services/ai-config';
 import { formatCurrency } from '@/lib/utils';
+
+type AiLeadContext = {
+  full_name: string;
+  phone: string;
+  email: string | null;
+  source: string;
+  status: string;
+  temperature: string;
+  property_type: string | null;
+  preferred_location: string | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  notes: string | null;
+  next_follow_up: string | null;
+  last_contacted_at: string | null;
+};
+
+type AiActivityContext = {
+  created_at: string;
+  type: string;
+  title: string;
+  description: string | null;
+};
 
 async function getOrgAiConfig(): Promise<{ config?: AiConfig; orgId?: string; error?: string }> {
   const supabase = await createServerSupabaseClient();
@@ -15,6 +39,11 @@ async function getOrgAiConfig(): Promise<{ config?: AiConfig; orgId?: string; er
     .eq('id', user.id)
     .single();
   if (!profile) return { error: 'Profile not found' };
+
+  const vercelConfig = getVercelAiConfig();
+  if (vercelConfig) {
+    return { config: vercelConfig, orgId: profile.organization_id };
+  }
 
   const { data: settings, error: settingsError } = await supabase
     .from('integration_settings')
@@ -45,7 +74,7 @@ async function getOrgAiConfig(): Promise<{ config?: AiConfig; orgId?: string; er
   return { config, orgId: profile.organization_id };
 }
 
-function formatLeadContext(lead: any) {
+function formatLeadContext(lead: AiLeadContext) {
   const budget = lead.budget_min || lead.budget_max
     ? `${lead.budget_min ? formatCurrency(lead.budget_min) : '?'} - ${lead.budget_max ? formatCurrency(lead.budget_max) : '?'}`
     : 'not specified';
@@ -65,7 +94,7 @@ function formatLeadContext(lead: any) {
   ].filter(Boolean).join('\n');
 }
 
-function formatActivities(activities: any[]) {
+function formatActivities(activities: AiActivityContext[]) {
   if (!activities?.length) return 'No activity yet.';
   return activities.slice(0, 10).map((a) =>
     `- [${new Date(a.created_at).toLocaleDateString()}] ${a.type}: ${a.title}${a.description ? ' — ' + a.description : ''}`,

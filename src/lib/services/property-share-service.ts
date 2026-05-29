@@ -1,5 +1,6 @@
 import { messageService } from './message-service';
 import { emailService } from './email-service';
+import { buildPropertyShareMessage } from './follow-up-playbook';
 import { formatCurrency } from '@/lib/utils';
 import { getBestAppUrl } from '@/lib/utils/app-url';
 import type { Lead, Property } from '@/types';
@@ -11,16 +12,7 @@ export const propertyShareService = {
 
   async shareViaWhatsApp(lead: Lead, property: Property) {
     const shareLink = this.generateShareLink(property.id);
-    const body = messageService.fillTemplate(
-      'Hi {{leadName}}, sharing details of {{propertyTitle}} in {{location}}. Price: {{price}}. Photos and details: {{shareLink}}',
-      {
-        leadName: lead.full_name.split(' ')[0],
-        propertyTitle: property.title,
-        location: property.location,
-        price: formatCurrency(property.price),
-        shareLink,
-      }
-    );
+    const body = buildPropertyShareMessage(lead, property, shareLink);
     return messageService.send({ to: lead.phone, body, channel: 'whatsapp', organizationId: lead.organization_id });
   },
 

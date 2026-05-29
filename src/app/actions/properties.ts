@@ -631,14 +631,30 @@ export async function shareProperty(leadId: string, propertyId: string, channel:
   if (!lead || !property) return { error: 'Lead or property not found' };
 
   const { propertyShareService } = await import('@/lib/services/property-share-service');
+  const { buildPropertyCheckInMessage } = await import('@/lib/services/follow-up-playbook');
 
   let result;
   if (channel === 'whatsapp') result = await propertyShareService.shareViaWhatsApp(lead, property);
   else if (channel === 'sms') result = await propertyShareService.shareViaSms(lead, property);
   else if (channel === 'email') result = await propertyShareService.shareViaEmail(lead, property);
+  else if (channel === 'link') result = { success: true, dryRun: false };
   else return { error: 'Invalid channel' };
 
   const shareLink = propertyShareService.generateShareLink(propertyId);
+
+  if (result && 'success' in result && !result.success) {
+    await supabase.from('activities').insert({
+      organization_id: profile.organization_id,
+      lead_id: leadId,
+      user_id: user.id,
+      type: 'property_share',
+      title: `Property share failed via ${channel}`,
+      description: 'error' in result ? result.error : null,
+      metadata: { property_id: propertyId, channel },
+    });
+    revalidatePath(`/leads/${leadId}`);
+    return { error: 'error' in result ? result.error : 'Property share failed', dryRun: 'dryRun' in result ? result.dryRun : false };
+  }
 
   await supabase.from('lead_property_shares').insert({
     lead_id: leadId,
@@ -657,6 +673,39 @@ export async function shareProperty(leadId: string, propertyId: string, channel:
     metadata: { property_id: propertyId, channel },
   });
 
+  const now = new Date();
+  const checkInAt = new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString();
+  const callAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+  await supabase.from('followups').insert([
+    {
+      organization_id: profile.organization_id,
+      lead_id: leadId,
+      agent_id: user.id,
+      type: 'whatsapp',
+      scheduled_at: checkInAt,
+      message: buildPropertyCheckInMessage(lead, property),
+    },
+    {
+      organization_id: profile.organization_id,
+      lead_id: leadId,
+      agent_id: user.id,
+      type: 'call',
+      scheduled_at: callAt,
+      message: 'Call to discuss property feedback and schedule the next step.',
+    },
+  ]);
+
+  await supabase
+    .from('leads')
+    .update({
+      last_contacted_at: now.toISOString(),
+      next_follow_up: checkInAt,
+      status: lead.status === 'new' ? 'contacted' : lead.status,
+    })
+    .eq('id', leadId);
+
   revalidatePath(`/leads/${leadId}`);
-  return { success: true, dryRun: (result as any)?.dryRun };
+  revalidatePath('/followups');
+  return { success: true, dryRun: result && 'dryRun' in result ? Boolean(result.dryRun) : false };
 }

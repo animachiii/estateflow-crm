@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { SettingsContent } from '@/components/shared/settings-page';
+import { getVercelAiConfig } from '@/lib/services/ai-config';
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -14,5 +15,13 @@ export default async function SettingsPage() {
     supabase.from('integration_settings').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
   ]);
 
-  return <SettingsContent profile={profile} org={org} settings={settings} />;
+  const clientSettings = {
+    ...(settings || {}),
+    has_ai_api_key: Boolean(settings?.ai_api_key || settings?.openai_api_key),
+    has_project_ai_config: Boolean(getVercelAiConfig()),
+    ai_api_key: null,
+    openai_api_key: null,
+  };
+
+  return <SettingsContent profile={profile} org={org} settings={clientSettings} />;
 }

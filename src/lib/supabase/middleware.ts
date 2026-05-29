@@ -33,8 +33,9 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup');
   const isWebhook = request.nextUrl.pathname.startsWith('/api/webhooks');
   const isCallback = request.nextUrl.pathname.startsWith('/api/auth');
+  const isPublicShare = request.nextUrl.pathname.startsWith('/share/');
 
-  if (!user && !isAuthPage && !isWebhook && !isCallback) {
+  if (!user && !isAuthPage && !isWebhook && !isCallback && !isPublicShare) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

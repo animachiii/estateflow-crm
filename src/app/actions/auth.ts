@@ -3,6 +3,7 @@
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getSupabaseSetupError } from '@/lib/supabase/config';
 import { emailService } from '@/lib/services/email-service';
+import { getDefaultFollowUpTemplateRows } from '@/lib/services/follow-up-playbook';
 import { getBestAppUrl } from '@/lib/utils/app-url';
 import { randomBytes } from 'crypto';
 import { redirect } from 'next/navigation';
@@ -113,30 +114,7 @@ export async function signUp(_prevState: unknown, formData: FormData) {
     organization_id: org.id,
   });
 
-  // Insert default follow-up templates
-  await serviceClient.from('followup_templates').insert([
-    {
-      organization_id: org.id,
-      name: 'Check Property Details',
-      type: 'whatsapp',
-      message: 'Hi {{leadName}}, just checking if you had a chance to review the property details I shared.',
-      is_default: true,
-    },
-    {
-      organization_id: org.id,
-      name: 'Quick Call',
-      type: 'whatsapp',
-      message: 'Hi {{leadName}}, are you available for a quick call today to discuss properties in {{preferredLocation}}?',
-      is_default: true,
-    },
-    {
-      organization_id: org.id,
-      name: 'New Options',
-      type: 'whatsapp',
-      message: 'Hi {{leadName}}, we have a few new options matching your budget. Should I share them?',
-      is_default: true,
-    },
-  ]);
+  await serviceClient.from('followup_templates').insert(getDefaultFollowUpTemplateRows(org.id));
 
   redirect('/');
 }

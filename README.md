@@ -43,6 +43,7 @@ cp .env.example .env.local
    - `supabase/migrations/003_ai_settings.sql`
    - `supabase/migrations/004_exotel_settings.sql`
    - `supabase/migrations/005_project_inventory.sql`
+   - `supabase/migrations/006_email_reminders.sql`
 4. (Optional) After first signup, run `supabase/seed/seed.sql` for demo data
 
 ### 4. Run Development Server
@@ -66,6 +67,25 @@ Important for invite emails and other outbound links:
 - In Supabase Auth, set **Site URL** to the same deployed domain and add your Vercel domain under **Redirect URLs**
 - If you trigger invites from local dev, keep `NEXT_PUBLIC_APP_URL=http://localhost:3000` for local browsing, but still point `NEXT_PUBLIC_SITE_URL` at production
 
+## AI Assistant
+
+For production, configure AI directly in Vercel Project Settings -> Environment Variables. Vercel env values are used first; org-specific values saved in `Settings -> Integrations -> AI Assistant` are only a fallback.
+
+Use either generic env vars:
+
+- `AI_PROVIDER` (`gemini`, `groq`, `openai`, or `anthropic`)
+- `AI_API_KEY`
+- `AI_MODEL` (optional)
+
+Or provider-specific env vars:
+
+- `GEMINI_API_KEY`, `GEMINI_MODEL`
+- `GROQ_API_KEY`, `GROQ_MODEL`
+- `OPENAI_API_KEY`, `OPENAI_MODEL`
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
+
+Voice transcription specifically requires `OPENAI_API_KEY` in Vercel.
+
 ## Exotel Setup (Optional)
 
 1. Create an Exotel account and note your Account SID, API Key, API Token, and ExoPhone
@@ -77,6 +97,27 @@ Important for invite emails and other outbound links:
    - `EXOTEL_SUBDOMAIN`
 4. For WhatsApp: set `WHATSAPP_SENDER_NUMBER`
 5. Set `DRY_RUN=false` to enable real calls
+
+## Email Reminders
+
+Daily follow-up reminder emails are sent through a Vercel cron job at `03:30 UTC` (`09:00 IST`) to agents with due or overdue follow-ups.
+
+Configure one of these:
+
+- Project-wide env:
+  - `RESEND_API_KEY`
+  - `RESEND_FROM_EMAIL`
+- Or org-specific values in `Settings -> Integrations`:
+  - `Resend API Key`
+  - `Reminder From Email`
+
+Also set:
+
+- `CRON_SECRET` in Vercel so cron invocations are authenticated
+
+The Vercel cron endpoint is:
+
+- `GET /api/cron/followup-email-reminders`
 
 ### Exotel Voice Endpoint
 
@@ -138,6 +179,7 @@ Set `WEBHOOK_SECRET` and include `x-webhook-signature` header (HMAC-SHA256 of re
 - **Property Inventory**: Project/society catalog with unit inventory, Bengaluru filters, photos, and share links
 - **Bulk Inventory Import**: CSV upload with project matching, auto-created societies, and import error reporting
 - **One-Click Sharing**: Send property details via WhatsApp/SMS/Email
+- **Email Reminders**: Daily agent reminder emails for overdue and due-today follow-ups
 - **Follow-Up System**: Templates, scheduling, snooze, completion tracking
 - **Attendance**: GPS check-in/out, admin dashboard, history
 - **Social Media**: Content calendar, post drafting, status pipeline

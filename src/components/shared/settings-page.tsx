@@ -7,36 +7,44 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { signOut } from '@/app/actions/auth';
 import { saveIntegrationSettings, updateProfilePhone } from '@/app/actions/settings';
-import { useActionState, useState, useEffect } from 'react';
+import { useActionState, useState } from 'react';
 import { LogOut, Building2, Plug, User, Database, Trash2, Sparkles, ExternalLink } from 'lucide-react';
 import { PROVIDER_LABELS, PROVIDER_KEY_URLS, type AiProvider } from '@/lib/services/ai-service';
 import { loadDemoData, clearDemoData } from '@/app/actions/demo-data';
 import { useTransition } from 'react';
-import type { Profile } from '@/types';
+import type { IntegrationSettings, Organization, Profile } from '@/types';
+
+type ClientIntegrationSettings = Partial<Omit<IntegrationSettings, 'ai_api_key' | 'openai_api_key'>> & {
+  ai_api_key: null;
+  openai_api_key: null;
+  has_ai_api_key: boolean;
+  has_project_ai_config: boolean;
+};
 
 interface Props {
   profile: Profile;
-  org: any;
-  settings: any;
+  org: Organization | null;
+  settings: ClientIntegrationSettings;
 }
 
 export function SettingsContent({ profile, org, settings }: Props) {
-  const integrationSettings = settings || {};
+  const integrationSettings = settings;
+  const hasAiApiKey = Boolean(integrationSettings.has_ai_api_key);
+  const hasProjectAiConfig = Boolean(integrationSettings.has_project_ai_config);
   const [integrationsState, saveIntegrations, savingIntegrations] = useActionState(saveIntegrationSettings, null);
   const [phoneState, savePhone, savingPhone] = useActionState(updateProfilePhone, null);
-  const [message, setMessage] = useState('');
   const [aiProvider, setAiProvider] = useState<AiProvider>((integrationSettings.ai_provider as AiProvider) || 'gemini');
-
-  // Surface action results as a toast-style banner
-  useEffect(() => {
-    if (integrationsState && 'success' in integrationsState && integrationsState.success) setMessage('✓ Settings saved!');
-    else if (integrationsState && 'error' in integrationsState && integrationsState.error) setMessage(`Error: ${integrationsState.error}`);
-  }, [integrationsState]);
-
-  useEffect(() => {
-    if (phoneState && 'success' in phoneState && phoneState.success) setMessage('✓ Phone updated!');
-    else if (phoneState && 'error' in phoneState && phoneState.error) setMessage(`Error: ${phoneState.error}`);
-  }, [phoneState]);
+  const integrationsMessage = integrationsState && 'success' in integrationsState && integrationsState.success
+    ? `Settings saved.${'warning' in integrationsState && integrationsState.warning ? ` ${integrationsState.warning}` : ''}`
+    : integrationsState && 'error' in integrationsState && integrationsState.error
+      ? `Error: ${integrationsState.error}`
+      : '';
+  const phoneMessage = phoneState && 'success' in phoneState && phoneState.success
+    ? 'Phone updated.'
+    : phoneState && 'error' in phoneState && phoneState.error
+      ? `Error: ${phoneState.error}`
+      : '';
+  const message = phoneMessage || integrationsMessage;
   const [demoMsg, setDemoMsg] = useState('');
   const [demoBusy, setDemoBusy] = useState<'load' | 'clear' | null>(null);
   const [, startTransition] = useTransition();
@@ -183,7 +191,7 @@ export function SettingsContent({ profile, org, settings }: Props) {
                   <h3 className="text-sm font-semibold text-gray-900">AI Assistant</h3>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Powers the ✨ Draft, Summarize, and Suggest Next Action features. Pick one provider; you only need a single API key.
+                  Powers Draft, Summarize, and Suggest Next Action. Pick one provider; you only need a single API key.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -206,7 +214,18 @@ export function SettingsContent({ profile, org, settings }: Props) {
                         Get key <ExternalLink className="h-3 w-3" />
                       </a>
                     </label>
-                    <Input name="ai_api_key" type="password" defaultValue={integrationSettings.ai_api_key || ''} placeholder="Paste API key" />
+                    <Input
+                      name="ai_api_key"
+                      type="password"
+                      autoComplete="off"
+                      placeholder={hasProjectAiConfig ? 'Configured in Vercel' : hasAiApiKey ? 'Saved. Paste a new key to replace it' : 'Paste API key'}
+                    />
+                    {hasProjectAiConfig && (
+                      <p className="mt-1 text-xs text-blue-700">Using AI key from Vercel environment variables</p>
+                    )}
+                    {hasAiApiKey && (
+                      <p className="mt-1 text-xs text-green-700">Org fallback API key saved</p>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 mb-1">
